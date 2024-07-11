@@ -2,6 +2,11 @@
 name = "aws_secretsmanager_caching"
 version = "1.0.0"
 edition = "2021"
+license = "Apache-2.0"
+description = "The AWS Secrets Manager Go caching client enables in-process caching of secrets for Go applications."
+homepage = "https://github.com/aws/aws-secretsmanager-agent/aws_secretsmanager_caching"
+repository = "https://github.com/aws/aws-secretsmanager-agent"
+readme = "README.md"
 
 [dependencies]
 aws-sdk-secretsmanager = "1"
@@ -12,10 +17,12 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 tokio = { version = "1", features = ["rt", "sync"] }
 linked-hash-map = "0.5.6"
+aws-config = "1.5.4"
 
 [dev-dependencies]
 aws-smithy-mocks-experimental = "0"
 aws-smithy-runtime = { version = "1", features = ["test-util"] }
 aws-sdk-secretsmanager = { version = "1", features = ["test-util"] }
-tokio = { version = "1", features = ["macros", "rt", "sync"] }
+tokio = { version = "1", features = ["macros", "rt", "sync", "test-util"] }
 http = "0"
+tokio-test = "0.4.4"
