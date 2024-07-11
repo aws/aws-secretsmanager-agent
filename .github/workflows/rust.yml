@@ -22,6 +22,7 @@ jobs:
         with:
           toolchain: nightly
           override: true
+          components: rustfmt, clippy
       - name: Build
         run: cargo build --verbose
       - name: Run tests
