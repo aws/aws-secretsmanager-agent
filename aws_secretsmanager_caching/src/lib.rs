@@ -11,7 +11,9 @@
 pub mod output;
 /// Manages the lifecycle of cached secrets
 pub mod secret_store;
+mod utils;
 
+use aws_config::BehaviorVersion;
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use secret_store::SecretStoreError;
 
@@ -19,6 +21,7 @@ use output::GetSecretValueOutputDef;
 use secret_store::{MemoryStore, SecretStore};
 use std::{error::Error, num::NonZeroUsize, time::Duration};
 use tokio::sync::RwLock;
+use utils::CachingLibraryInterceptor;
 
 /// AWS Secrets Manager Caching client
 #[derive(Debug)]
@@ -37,6 +40,24 @@ impl SecretsManagerCachingClient {
     /// * `asm_client` - Initialized AWS SDK Secrets Manager client instance
     /// * `max_size` - Maximum size of the store.
     /// * `ttl` - Time-to-live of the secrets in the store.
+    /// ```rust
+    /// use aws_sdk_secretsmanager::Client as SecretsManagerClient;
+    /// use aws_sdk_secretsmanager::{config::Region, Config};
+    /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
+    /// use std::num::NonZeroUsize;
+    /// use std::time::Duration;
+
+    /// let asm_client = SecretsManagerClient::from_conf(
+    /// Config::builder()
+    ///     .behavior_version_latest()
+    ///     .build(),
+    /// );
+    /// let client = SecretsManagerCachingClient::new(
+    ///     asm_client,
+    ///     NonZeroUsize::new(10).unwrap(),
+    ///     Duration::from_secs(60),
+    /// );
+    /// ```
     pub fn new(
         asm_client: SecretsManagerClient,
         max_size: NonZeroUsize,
@@ -46,6 +67,75 @@ impl SecretsManagerCachingClient {
             asm_client,
             store: RwLock::new(Box::new(MemoryStore::new(max_size, ttl))),
         })
+    }
+
+    /// Create a new caching client with in-memory store and the default AWS SDK client configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `max_size` - Maximum size of the store.
+    /// * `ttl` - Time-to-live of the secrets in the store.
+    /// ```rust
+    /// tokio_test::block_on(async {
+    /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
+    /// use std::num::NonZeroUsize;
+    /// use std::time::Duration;
+    ///
+    /// let client = SecretsManagerCachingClient::default(
+    /// NonZeroUsize::new(10).unwrap(),
+    /// Duration::from_secs(60),
+    /// ).await.unwrap();
+    /// })
+    /// ```
+    pub async fn default(max_size: NonZeroUsize, ttl: Duration) -> Result<Self, SecretStoreError> {
+        let default_config = &aws_config::load_defaults(BehaviorVersion::latest()).await;
+        let asm_builder = aws_sdk_secretsmanager::config::Builder::from(default_config)
+            .interceptor(CachingLibraryInterceptor);
+
+        let asm_client = SecretsManagerClient::from_conf(asm_builder.build());
+        Self::new(asm_client, max_size, ttl)
+    }
+
+    /// Create a new caching client with in-memory store from an AWS SDK client builder
+    ///
+    /// # Arguments
+    ///
+    /// * `asm_builder` - AWS Secrets Manager SDK client builder.
+    /// * `max_size` - Maximum size of the store.
+    /// * `ttl` - Time-to-live of the secrets in the store.
+    ///
+    /// ```rust
+    /// tokio_test::block_on(async {
+    /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
+    /// use std::num::NonZeroUsize;
+    /// use std::time::Duration;
+    /// use aws_config::{BehaviorVersion, Region};
+
+    /// let config = aws_config::load_defaults(BehaviorVersion::latest())
+    /// .await
+    /// .into_builder()
+    /// .region(Region::from_static("us-west-2"))
+    /// .build();
+
+    /// let asm_builder = aws_sdk_secretsmanager::config::Builder::from(&config);
+
+    /// let client = SecretsManagerCachingClient::from_builder(
+    /// asm_builder,
+    /// NonZeroUsize::new(10).unwrap(),
+    /// Duration::from_secs(60),
+    /// )
+    /// .await.unwrap();
+    /// })
+    /// ```
+    pub async fn from_builder(
+        asm_builder: aws_sdk_secretsmanager::config::Builder,
+        max_size: NonZeroUsize,
+        ttl: Duration,
+    ) -> Result<Self, SecretStoreError> {
+        let asm_client = SecretsManagerClient::from_conf(
+            asm_builder.interceptor(CachingLibraryInterceptor).build(),
+        );
+        Self::new(asm_client, max_size, ttl)
     }
 
     /// Retrieves the value of the secret from the specified version.

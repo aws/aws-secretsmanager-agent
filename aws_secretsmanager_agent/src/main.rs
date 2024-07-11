@@ -234,7 +234,7 @@ mod tests {
     use tokio::task::JoinSet;
     use tokio::time::timeout;
     #[cfg(unix)]
-    use utils::test::set_test_var; // set_test_var does not work across threads (e.g. run_request)
+    use utils::tests::set_test_var; // set_test_var does not work across threads (e.g. run_request)
     use utils::tests::{tmpfile_name, CleanUp};
 
     fn one_shot() -> bool {
