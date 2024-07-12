@@ -17,7 +17,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "1"
 tokio = { version = "1", features = ["rt", "sync"] }
 linked-hash-map = "0.5.6"
-aws-config = "1.5.4"
+aws-config = "1"
 
 [dev-dependencies]
 aws-smithy-mocks-experimental = "0"
