@@ -328,8 +328,6 @@ You can configure logging in the [Configuration file](#secrets-manager-agent-con
 
 ## Security considerations<a name="secrets-manager-agent-security"></a>
 
-The Secrets Manager Agent provides compatibility for legacy applications that access secrets through an existing agent or that need caching for langages not supported through other solutions\.
-
 For an agent architecture, the domain of trust is where the agent endpoint and SSRF token are accessible, which is usually the entire host\. The domain of trust for the Secrets Manager Agent should match the domain where the Secrets Manager credentials are available in order to maintain the same security posture\. For example, on Amazon EC2 the domain of trust for the Secrets Manager Agent would be the same as the domain of the credentials when using roles for Amazon EC2\.
 
 Security conscious applications that are not already using an agent solution with the Secrets Manager credentials locked down to the application should consider using the language\-specific AWS SDKs or caching solutions\. For more information, see [Get secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets.html)\.
