@@ -2,6 +2,11 @@
 name = "aws_secretsmanager_agent"
 version = "1.0.0"
 edition = "2021"
+license = "Apache-2.0"
+description = "The AWS Secrets Manager Agent is a local HTTP service that you can install and use in your compute environments to read secrets from Secrets Manager and cache them in memory."
+homepage = "https://github.com/aws/aws-secretsmanager-agent"
+repository = "https://github.com/aws/aws-secretsmanager-agent"
+readme = "../README.md"
 
 [dependencies]
 hyper = { version = "1", features = ["http1", "server"] }
