@@ -217,17 +217,46 @@ You must load AWS credentials and the SSRF token for the application to be able 
 ------
 #### [ AWS Lambda ]
 
-You can package the Secrets Manager Agent as an AWS Lambda extension\. Then you can add it to your Lambda function as a layer and call the Secrets Manager Agent from your Lambda function to get secrets\. For an example script that shows how to run the Secrets Manager Agent as an extension, see `secrets-manager-agent-extension.sh` in [https://github\.com/aws/aws\-secretsmanager\-agent](https://github.com/aws/aws-secretsmanager-agent)\.
+You can [package the Secrets Manager Agent as an AWS Lambda extension](https://docs.aws.amazon.com/lambda/latest/dg/packaging-layers.html)\. Then you can [add it to your Lambda function as a layer](https://docs.aws.amazon.com/lambda/latest/dg/adding-layers.html) and call the Secrets Manager Agent from your Lambda function to get secrets\. 
+
+The following instructions show how to get a secret named *MyTest* by using the example script `secrets-manager-agent-extension.sh` in [https://github\.com/aws/aws\-secretsmanager\-agent](https://github.com/aws/aws-secretsmanager-agent) to install the Secrets Manager Agent as a Lambda extension\.
 
 **To create a Lambda extension that packages the Secrets Manager Agent**
 
-1. Create a ZIP file with the Secrets Manager Agent binary\. For instructions, see [Packaging your layer content](https://docs.aws.amazon.com/lambda/latest/dg/packaging-layers.html) in the *AWS Lambda Developer Guide*\.
+1. Create a Python Lambda function that queries `http://localhost:2773/secretsmanager/get?secretId=MyTest` to get the secret\. Be sure to implement retry logic in your application code to accommodate delays in initialization and registration of the Lambda extension\.
 
-1. Create a Lambda layer from the ZIP file\. For instructions, see [Creating layers](https://docs.aws.amazon.com/lambda/latest/dg/creating-deleting-layers.html) in the *AWS Lambda Developer Guide*\.
+1. From the root of the Secrets Manager Agent code package, run the following commands to test the Lambda extension\.
 
-1. Add the layer to your Lambda function\. For instructions, see [Adding layers to functions](https://docs.aws.amazon.com/lambda/latest/dg/adding-layers.html) in the *AWS Lambda Developer Guide*\.
+   ```
+   AWS_ACCOUNT_ID=<AWS_ACCOUNT_ID>
+   LAMBDA_ARN=<LAMBDA_ARN>
+   
+   # Build the release binary 
+   cargo build --release --target=x86_64-unknown-linux-gnu
+   
+   # Copy the release binary into the `bin` folder
+   mkdir -p ./bin
+   cp ./target/x86_64-unknown-linux-gnu/release/aws_secretsmanager_agent ./bin/secrets-manager-agent
+   
+   # Copy the `secrets-manager-agent-extension.sh` script into the `extensions` folder.
+   mkdir -p ./extensions
+   cp aws_secretsmanager_agent/examples/example-lambda-extension/secrets-manager-agent-extension.sh ./extensions
+   
+   # Zip the extension shell script and the binary 
+   zip secrets-manager-agent-extension.zip bin/* extensions/*
+   
+   # Publish the layer version
+   LAYER_VERSION_ARN=$(aws lambda publish-layer-version \
+       --layer-name secrets-manager-agent-extension \
+       --zip-file "fileb://secrets-manager-agent-extension.zip" | jq -r '.LayerVersionArn')
+   
+   # Attach the layer version to the Lambda function
+   aws lambda update-function-configuration \
+       --function-name $LAMBDA_ARN \
+       --layers "$LAYER_VERSION_ARN"
+   ```
 
-1. In your Lambda function code, you can now use the Secrets Manager Agent to retrieve secrets\. For more information, see [Step 3: Retrieve secrets with the Secrets Manager Agent](#secrets-manager-agent-call)\.
+1. Invoke the Lambda function to verify that the secret is being correctly fetched\. 
 
 ------
 
