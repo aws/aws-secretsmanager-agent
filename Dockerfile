@@ -2,10 +2,10 @@ FROM rust:alpine as builder
 
 WORKDIR /app
 
-COPY . .
-
 RUN apk add build-base ca-certificates
 RUN update-ca-certificates
+
+COPY . .
 
 RUN cargo build --release
 
