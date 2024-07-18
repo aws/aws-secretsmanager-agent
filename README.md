@@ -227,7 +227,7 @@ The following instructions show how to get a secret named *MyTest* by using the 
 
 1. From the root of the Secrets Manager Agent code package, run the following commands to test the Lambda extension\.
 
-   ```
+   ```sh
    AWS_ACCOUNT_ID=<AWS_ACCOUNT_ID>
    LAMBDA_ARN=<LAMBDA_ARN>
    
