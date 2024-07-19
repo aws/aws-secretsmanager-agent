@@ -211,7 +211,7 @@ pub mod tests {
     // Used to inject env variable values for testing. Uses thread local data since
     // multi-threaded tests setting process wide env variables can collide.
     thread_local! {
-        static ENVVAR: RefCell<Option<Vec<(&'static str, &'static str)>>> = RefCell::new(None);
+        static ENVVAR: RefCell<Option<Vec<(&'static str, &'static str)>>> = const { RefCell::new(None) };
     }
     pub fn set_test_var(key: &'static str, val: &'static str) {
         ENVVAR.set(Some(vec![(key, val)]));
@@ -227,9 +227,9 @@ pub mod tests {
             return Err(VarError::NotPresent);
         }
         if let Some(varvec) = ENVVAR.with_borrow(|v| v.clone()) {
-            let found = varvec.iter().filter(|keyval| keyval.0 == key).next();
-            if found != None {
-                return Ok(found.unwrap().1.to_string());
+            let found = varvec.iter().find(|keyval| keyval.0 == key);
+            if let Some(found) = found {
+                return Ok(found.1.to_string());
             }
         } else {
             // Return a default value if no value is injected.
@@ -310,18 +310,15 @@ pub mod tests {
             file: Some(&tmpfile),
         };
         set_test_var("", "");
-        std::fs::write(&tmpfile, format!("ssrf_env_variables = [\"NOSUCHENV\"]"))
+        std::fs::write(&tmpfile, "ssrf_env_variables = [\"NOSUCHENV\"]")
             .expect("could not write");
         let cfg = Config::new(Some(&tmpfile)).expect("config failed");
-        assert_eq!(
-            get_token(&cfg)
-                .err()
-                .unwrap()
-                .downcast_ref::<VarError>()
-                .unwrap()
-                .eq(&VarError::NotPresent),
-            true
-        );
+        assert!(get_token(&cfg)
+            .err()
+            .unwrap()
+            .downcast_ref::<VarError>()
+            .unwrap()
+            .eq(&VarError::NotPresent));
     }
 
     // Make sure the timeout functon returns the correct value.

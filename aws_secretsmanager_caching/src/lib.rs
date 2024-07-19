@@ -15,7 +15,7 @@ pub mod secret_store;
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use secret_store::SecretStoreError;
 
-use output::GetSecretValueOutputDef;
+use output::{DescribeSecretOutputDef, GetSecretValueOutputDef};
 use secret_store::{MemoryStore, SecretStore};
 use std::{error::Error, num::NonZeroUsize, time::Duration};
 use tokio::sync::RwLock;
@@ -205,6 +205,52 @@ impl SecretsManagerCachingClient {
         }
 
         Ok(false)
+    }
+
+    /// Retrieves the metadata of the secret
+    ///
+    /// # Arguments
+    ///
+    /// * `secret_id` - The ARN or name of the secret to retrieve.
+    async fn describe_secret(
+        &self,
+        secret_id: &str,
+    ) -> Result<DescribeSecretOutputDef, Box<dyn Error>> {
+        let read_lock = self.store.read().await;
+
+        match read_lock.describe_secret(secret_id) {
+            Ok(r) => Ok(r),
+            Err(SecretStoreError::ResourceNotFound | SecretStoreError::DescribeCacheExpired) => {
+                drop(read_lock);
+                Ok(self.refresh_describe(secret_id).await?)
+            }
+            Err(e) => Err(Box::new(e)),
+        }
+    }
+
+    /// Refreshes the secret metadata through a DescribeSecret call to ASM
+    ///
+    /// # Arguments
+    /// * `secret_id` - The ARN or name of the secret to retrieve.
+    async fn refresh_describe(
+        &self,
+        secret_id: &str,
+    ) -> Result<DescribeSecretOutputDef, Box<dyn Error>> {
+        let response = self
+            .asm_client
+            .describe_secret()
+            .secret_id(secret_id)
+            .send()
+            .await?;
+
+        let result: DescribeSecretOutputDef = response.into();
+
+        self.store
+            .write()
+            .await
+            .write_describe_secret(secret_id.to_owned(), result.clone())?;
+
+        Ok(result)
     }
 }
 
@@ -484,9 +530,12 @@ mod tests {
 
         sleep(Duration::from_millis(10)).await;
 
-        match client.get_secret_value(secret_id, version_id, None).await {
-            Ok(_) => panic!("Expected failure"),
-            Err(_) => (),
+        if client
+            .get_secret_value(secret_id, version_id, None)
+            .await
+            .is_ok()
+        {
+            panic!("Expected failure")
         }
     }
 
