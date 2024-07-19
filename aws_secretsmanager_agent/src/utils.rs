@@ -310,8 +310,7 @@ pub mod tests {
             file: Some(&tmpfile),
         };
         set_test_var("", "");
-        std::fs::write(&tmpfile, "ssrf_env_variables = [\"NOSUCHENV\"]")
-            .expect("could not write");
+        std::fs::write(&tmpfile, "ssrf_env_variables = [\"NOSUCHENV\"]").expect("could not write");
         let cfg = Config::new(Some(&tmpfile)).expect("config failed");
         assert!(get_token(&cfg)
             .err()

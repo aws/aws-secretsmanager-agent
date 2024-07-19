@@ -222,14 +222,14 @@ mod tests {
     use hyper::{client, Request, StatusCode};
     use hyper_util::rt::TokioIo;
     use serde_json::Value;
-    
+
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::Duration;
     use std::{fs, thread};
-    
+
     use tokio::net::TcpStream;
     use tokio::task::JoinSet;
     use tokio::time::timeout;
