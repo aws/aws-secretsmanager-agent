@@ -22,6 +22,7 @@ const DEFAULT_SSRF_ENV_VARIABLES: [&str; 3] = [
     "AWS_CONTAINER_AUTHORIZATION_TOKEN",
 ];
 const DEFAULT_PATH_PREFIX: &str = "/v1/";
+const DEFAULT_STATIC_STABILITY: bool = true;
 
 const DEFAULT_REGION: Option<String> = None;
 
@@ -39,6 +40,7 @@ struct ConfigFile {
     path_prefix: String,
     max_conn: String,
     region: Option<String>,
+    static_stability: bool,
 }
 
 /// The log levels supported by the daemon.
@@ -97,6 +99,9 @@ pub struct Config {
 
     /// The AWS Region that will be used to send the Secrets Manager request to.
     region: Option<String>,
+
+    /// Whether the agent should serve cached data on transient refresh errors
+    static_stability: bool,
 }
 
 /// The default configuration options.
@@ -138,7 +143,8 @@ impl Config {
             )?
             .set_default("path_prefix", DEFAULT_PATH_PREFIX)?
             .set_default("max_conn", DEFAULT_MAX_CONNECTIONS)?
-            .set_default("region", DEFAULT_REGION)?;
+            .set_default("region", DEFAULT_REGION)?
+            .set_default("static_stability", DEFAULT_STATIC_STABILITY)?;
 
         // Merge the config overrides onto the default configurations, if provided.
         config = match file_path {
@@ -232,6 +238,15 @@ impl Config {
         self.region.as_ref()
     }
 
+    /// Whether the client should serve cached data on transient refresh errors
+    ///
+    /// # Returns
+    ///
+    /// * `static_stability` - Whether the client should serve cached data on transient refresh errors. Defaults to "true"
+    pub fn static_stability(&self) -> bool {
+        self.static_stability
+    }
+
     /// Private helper that fills in the Config instance from the specified
     /// config overrides (or defaults).
     ///
@@ -279,6 +294,7 @@ impl Config {
                 None,
             )?,
             region: config_file.region,
+            static_stability: config_file.static_stability,
         };
 
         // Additional validations.
@@ -361,6 +377,7 @@ mod tests {
             path_prefix: String::from(DEFAULT_PATH_PREFIX),
             max_conn: String::from(DEFAULT_MAX_CONNECTIONS),
             region: None,
+            static_stability: DEFAULT_STATIC_STABILITY,
         }
     }
 
@@ -386,6 +403,7 @@ mod tests {
         assert_eq!(config.clone().path_prefix(), DEFAULT_PATH_PREFIX);
         assert_eq!(config.clone().max_conn(), 800);
         assert_eq!(config.clone().region(), None);
+        assert_eq!(config.static_stability(), true);
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -410,6 +428,7 @@ mod tests {
         assert_eq!(config.clone().path_prefix(), "/other");
         assert_eq!(config.clone().max_conn(), 10);
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
+        assert_eq!(config.static_stability(), true);
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.

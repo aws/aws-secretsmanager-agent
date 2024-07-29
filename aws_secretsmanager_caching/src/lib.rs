@@ -7,6 +7,8 @@
 
 //! AWS Secrets Manager Caching Library
 
+/// Error types
+mod error;
 /// Output of secret store
 pub mod output;
 /// Manages the lifecycle of cached secrets
@@ -15,6 +17,7 @@ mod utils;
 
 use aws_config::BehaviorVersion;
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
+use error::is_transient_error;
 use secret_store::SecretStoreError;
 
 use output::GetSecretValueOutputDef;
@@ -30,6 +33,7 @@ pub struct SecretsManagerCachingClient {
     asm_client: SecretsManagerClient,
     /// A store used to cache secrets.
     store: RwLock<Box<dyn SecretStore>>,
+    static_stability: bool,
 }
 
 impl SecretsManagerCachingClient {
@@ -40,6 +44,7 @@ impl SecretsManagerCachingClient {
     /// * `asm_client` - Initialized AWS SDK Secrets Manager client instance
     /// * `max_size` - Maximum size of the store.
     /// * `ttl` - Time-to-live of the secrets in the store.
+    /// * `static_stability` - Whether the client should serve cached data on transient refresh errors
     /// ```rust
     /// use aws_sdk_secretsmanager::Client as SecretsManagerClient;
     /// use aws_sdk_secretsmanager::{config::Region, Config};
@@ -62,10 +67,12 @@ impl SecretsManagerCachingClient {
         asm_client: SecretsManagerClient,
         max_size: NonZeroUsize,
         ttl: Duration,
+        static_stability: bool,
     ) -> Result<Self, SecretStoreError> {
         Ok(Self {
             asm_client,
             store: RwLock::new(Box::new(MemoryStore::new(max_size, ttl))),
+            static_stability,
         })
     }
 
@@ -163,9 +170,18 @@ impl SecretsManagerCachingClient {
             }
             Err(SecretStoreError::CacheExpired(cached_value)) => {
                 drop(read_lock);
-                Ok(self
-                    .refresh_secret_value(secret_id, version_id, version_stage, Some(cached_value))
-                    .await?)
+                match self
+                    .refresh_secret_value(
+                        secret_id,
+                        version_id,
+                        version_stage,
+                        Some(cached_value.clone()),
+                    )
+                    .await
+                {
+                    Ok(r) => Ok(r),
+                    Err(e) => Err(e.into()),
+                }
             }
             Err(e) => Err(Box::new(e)),
         }
@@ -191,14 +207,14 @@ impl SecretsManagerCachingClient {
                 .is_current(version_id, version_stage, cached_value.clone())
                 .await?
             {
-                // Refresh the TTL by writing the same data back to the cache.
+                // Re-up the entry freshness (TTL, cache rank) by writing the same data back to the cache.
                 self.store.write().await.write_secret_value(
                     secret_id.to_owned(),
                     version_id.map(String::from),
                     version_stage.map(String::from),
                     *cached_value.clone(),
                 )?;
-
+                // Serve the cached value
                 return Ok(*cached_value);
             }
         }
@@ -239,12 +255,22 @@ impl SecretsManagerCachingClient {
         version_stage: Option<&str>,
         cached_value: Box<GetSecretValueOutputDef>,
     ) -> Result<bool, Box<dyn Error>> {
-        let describe = self
+        let describe = match self
             .asm_client
             .describe_secret()
             .secret_id(cached_value.arn.unwrap())
             .send()
-            .await?;
+            .await
+        {
+            Ok(r) => r,
+            Err(e) if self.static_stability => {
+                return match is_transient_error(&e) {
+                    true => Ok(true),
+                    false => Err(e.into()),
+                }
+            }
+            Err(e) => return Err(e.into()),
+        };
 
         let real_vids_to_stages = match describe.version_ids_to_stages() {
             Some(vids_to_stages) => vids_to_stages,
@@ -288,6 +314,7 @@ mod tests {
                 Some(ttl) => ttl,
                 None => Duration::from_secs(1000),
             },
+            false,
         )
         .expect("client should create")
     }
