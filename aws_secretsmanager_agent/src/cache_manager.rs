@@ -33,6 +33,7 @@ impl CacheManager {
             asm_client(cfg).await?,
             cfg.cache_size(),
             cfg.ttl(),
+            cfg.static_stability(),
         )?))
     }
 
