@@ -8,8 +8,7 @@ The AWS Secrets Manager Rust Caching Client enables in-process caching of secret
 
 To use this client you must have:
 
-* A Rust 2021 development environment
-  If you do not have one, go to [Rust Getting Started](https://www.rust-lang.org/learn/get-started) on the Rust Programming Language website, then download and install Rust.
+* A Rust 2021 development environment. If you do not have one, go to [Rust Getting Started](https://www.rust-lang.org/learn/get-started) on the Rust Programming Language website, then download and install Rust.
 * An Amazon Web Services (AWS) account to access secrets stored in AWS Secrets Manager.
   * **To create an AWS account**, go to [Sign In or Create an AWS Account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html) and then choose **I am a new user.** Follow the instructions to create an AWS account.
   * **To create a secret in AWS Secrets Manager**, go to [Creating Secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_create-basic-secret.html) and follow the instructions on that page.
