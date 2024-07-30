@@ -31,8 +31,8 @@ use std::num::NonZeroUsize;
 use std::time::Duration;
 
 let client = match SecretsManagerCachingClient::default(
-    NonZeroUsize::new(10).unwrap(),
-    Duration::from_secs(60),
+    NonZeroUsize::new(1000).unwrap(),
+    Duration::from_secs(300),
 )
 .await
 {
@@ -70,8 +70,8 @@ let asm_builder = aws_sdk_secretsmanager::config::Builder::from(&config);
 
 let client = match SecretsManagerCachingClient::from_builder(
     asm_builder,
-    NonZeroUsize::new(10).unwrap(),
-    Duration::from_secs(60),
+    NonZeroUsize::new(1000).unwrap(),
+    Duration::from_secs(300),
 )
 .await
 {
@@ -92,8 +92,8 @@ let secret_string = client
 
 ### Getting Help
 
-We use GitHub issues for tracking bugs and caching library feature requests and have limited bandwidth to address them. Please use these community resources for getting help:
+Please use these community resources for getting help:
 
 * Ask a question on [Stack Overflow](https://stackoverflow.com/) and tag it with [aws-secrets-manager](https://stackoverflow.com/questions/tagged/aws-secrets-manager).
 * Open a support ticket with [AWS Support](https://console.aws.amazon.com/support/home#/)
-* if it turns out that you may have found a bug, please [open an issue](https://github.com/aws/aws-secretsmanager-agent/issues/new/choose).
+* If it turns out that you may have found a bug, or have a feature request, please [open an issue](https://github.com/aws/aws-secretsmanager-agent/issues/new/choose).
