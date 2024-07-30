@@ -19,8 +19,8 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
       - [\[ Cross-compile natively \]](#-cross-compile-natively-)
       - [\[ Cross compile with Rust cross \]](#-cross-compile-with-rust-cross-)
   - [Step 2: Install the Secrets Manager Agent](#step-2-install-the-secrets-manager-agent)
-      - [\[ Amazon EKS and Amazon ECS \]](#-amazon-eks-and-amazon-ecs-)
-      - [\[ Docker \]](#-docker-)
+      - [\[ Amazon EC2 \]](#-amazon-ec2-)
+      - [\[ Running as a Container Sidecar \]](#-running-as-a-container-sidecar-)
       - [\[ AWS Lambda \]](#-aws-lambda-)
   - [Step 3: Retrieve secrets with the Secrets Manager Agent](#step-3-retrieve-secrets-with-the-secrets-manager-agent)
       - [\[ curl \]](#-curl-)
@@ -135,7 +135,7 @@ cross build --release --target x86_64-pc-windows-gnu
 Based on the type of compute, you have several options for installing the Secrets Manager Agent\.
 
 ------
-#### [ Amazon EKS and Amazon ECS ]
+#### [ Amazon EC2 ]
 
 **To install the Secrets Manager Agent**
 
@@ -150,7 +150,7 @@ Based on the type of compute, you have several options for installing the Secret
    ```
 
 ------
-#### [ Docker ]
+#### [ Running as a Container Sidecar ]
 
 You can run the Secrets Manager Agent as a sidecar container alongside your application by using Docker\. Then your application can retrieve secrets from the local HTTP server the Secrets Manager Agent provides\. For information about Docker, see the [Docker documentation](https://docs.docker.com)\. 
 
