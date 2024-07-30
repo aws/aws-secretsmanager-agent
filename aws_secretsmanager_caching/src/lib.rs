@@ -54,8 +54,8 @@ impl SecretsManagerCachingClient {
     /// );
     /// let client = SecretsManagerCachingClient::new(
     ///     asm_client,
-    ///     NonZeroUsize::new(10).unwrap(),
-    ///     Duration::from_secs(60),
+    ///     NonZeroUsize::new(1000).unwrap(),
+    ///     Duration::from_secs(300),
     /// );
     /// ```
     pub fn new(
@@ -82,8 +82,8 @@ impl SecretsManagerCachingClient {
     /// use std::time::Duration;
     ///
     /// let client = SecretsManagerCachingClient::default(
-    /// NonZeroUsize::new(10).unwrap(),
-    /// Duration::from_secs(60),
+    /// NonZeroUsize::new(1000).unwrap(),
+    /// Duration::from_secs(300),
     /// ).await.unwrap();
     /// })
     /// ```
@@ -121,8 +121,8 @@ impl SecretsManagerCachingClient {
 
     /// let client = SecretsManagerCachingClient::from_builder(
     /// asm_builder,
-    /// NonZeroUsize::new(10).unwrap(),
-    /// Duration::from_secs(60),
+    /// NonZeroUsize::new(1000).unwrap(),
+    /// Duration::from_secs(300),
     /// )
     /// .await.unwrap();
     /// })
