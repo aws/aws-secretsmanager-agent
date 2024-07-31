@@ -4,7 +4,7 @@ pub use memory_store::MemoryStore;
 use serde::{Deserialize, Serialize};
 use std::{error::Error, fmt::Debug};
 
-use crate::output::GetSecretValueOutputDef;
+use crate::output::{DescribeSecretOutputDef, GetSecretValueOutputDef};
 
 /// Response of the GetSecretValue API
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -29,6 +29,19 @@ pub trait SecretStore: Debug + Send + Sync {
         version_stage: Option<String>,
         data: GetSecretValueOutputDef,
     ) -> Result<(), SecretStoreError>;
+
+    /// Get secret metadata from the cache
+    fn describe_secret<'a>(
+        &'a self,
+        secret_id: &'a str,
+    ) -> Result<DescribeSecretOutputDef, SecretStoreError>;
+
+    /// Write secret metadata to the cache
+    fn write_describe_secret(
+        &mut self,
+        secret_id: String,
+        data: DescribeSecretOutputDef,
+    ) -> Result<(), SecretStoreError>;
 }
 
 /// All possible error types
@@ -41,6 +54,10 @@ pub enum SecretStoreError {
     /// Secret cache TTL expired
     #[error("cache expired")]
     CacheExpired(Box<GetSecretValueOutputDef>),
+
+    /// Describe Secret cache TTL expired
+    #[error("cache expired")]
+    DescribeCacheExpired,
 
     /// An unexpected error occurred
     #[error("unhandled error {0:?}")]

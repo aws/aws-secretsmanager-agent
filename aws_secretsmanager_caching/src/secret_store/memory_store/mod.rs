@@ -1,6 +1,6 @@
 mod cache;
 
-use crate::output::GetSecretValueOutputDef;
+use crate::output::{DescribeSecretOutputDef, GetSecretValueOutputDef};
 
 use self::cache::Cache;
 
@@ -34,9 +34,25 @@ impl GSVValue {
 }
 
 #[derive(Debug, Clone)]
+struct DescribeValue {
+    value: DescribeSecretOutputDef,
+    last_retrieved_at: Instant,
+}
+
+impl DescribeValue {
+    fn new(value: DescribeSecretOutputDef) -> Self {
+        Self {
+            value,
+            last_retrieved_at: Instant::now(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 /// In-memory secret store using an time and space bound cache
 pub struct MemoryStore {
     gsv_cache: Cache<Key, GSVValue>,
+    describe_cache: Cache<String, DescribeValue>,
     ttl: Duration,
 }
 
@@ -51,6 +67,7 @@ impl MemoryStore {
     pub fn new(max_size: NonZeroUsize, ttl: Duration) -> Self {
         Self {
             gsv_cache: Cache::new(max_size),
+            describe_cache: Cache::new(max_size),
             ttl,
         }
     }
@@ -91,6 +108,30 @@ impl SecretStore for MemoryStore {
             },
             GSVValue::new(data),
         );
+
+        Ok(())
+    }
+
+    fn describe_secret<'a>(
+        &'a self,
+        secret_id: &'a str,
+    ) -> Result<crate::output::DescribeSecretOutputDef, SecretStoreError> {
+        match self.describe_cache.get(secret_id) {
+            Some(describe) if describe.last_retrieved_at.elapsed() > self.ttl => {
+                Err(SecretStoreError::DescribeCacheExpired)
+            }
+            Some(describe) => Ok(describe.clone().value),
+            None => Err(SecretStoreError::ResourceNotFound),
+        }
+    }
+
+    fn write_describe_secret(
+        &mut self,
+        secret_id: String,
+        data: DescribeSecretOutputDef,
+    ) -> Result<(), SecretStoreError> {
+        self.describe_cache
+            .insert(secret_id, DescribeValue::new(data));
 
         Ok(())
     }

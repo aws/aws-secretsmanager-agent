@@ -1,7 +1,7 @@
 use aws_sdk_secretsmanager::operation::get_secret_value::GetSecretValueOutput;
 use aws_smithy_types::base64;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_with::{serde_as, DeserializeAs, SerializeAs, TimestampSecondsWithFrac};
+use serde::{Deserialize, Serialize, Serializer};
+use serde_with::{serde_as, TimestampSecondsWithFrac};
 use std::convert::TryFrom;
 use std::time::SystemTime;
 
@@ -61,12 +61,6 @@ impl GetSecretValueOutputDef {
     }
 }
 
-impl From<GetSecretValueOutput> for GetSecretValueOutputDef {
-    fn from(input: GetSecretValueOutput) -> Self {
-        Self::new(input)
-    }
-}
-
 /// Copy of the remote AWS SDK Blob type.
 #[serde_as]
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Deserialize)]
@@ -96,40 +90,8 @@ impl Serialize for BlobDef {
     }
 }
 
-/// Copy of the remote aws_smithy_types::DateTime type.
-#[serde_as]
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(remote = "::aws_smithy_types::DateTime")]
-pub struct DateTimeDef {
-    #[serde(getter = "::aws_smithy_types::DateTime::secs")]
-    seconds: i64,
-    #[serde(getter = "::aws_smithy_types::DateTime::subsec_nanos")]
-    subsecond_nanos: u32,
-}
-
-impl SerializeAs<::aws_smithy_types::DateTime> for DateTimeDef {
-    fn serialize_as<S>(
-        source: &::aws_smithy_types::DateTime,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        DateTimeDef::serialize(source, serializer)
-    }
-}
-
-impl<'de> DeserializeAs<'de, ::aws_smithy_types::DateTime> for DateTimeDef {
-    fn deserialize_as<D>(deserializer: D) -> Result<::aws_smithy_types::DateTime, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        DateTimeDef::deserialize(deserializer)
-    }
-}
-
-impl From<DateTimeDef> for ::aws_smithy_types::DateTime {
-    fn from(def: DateTimeDef) -> ::aws_smithy_types::DateTime {
-        ::aws_smithy_types::DateTime::from_secs_and_nanos(def.seconds, def.subsecond_nanos)
+impl From<GetSecretValueOutput> for GetSecretValueOutputDef {
+    fn from(input: GetSecretValueOutput) -> Self {
+        Self::new(input)
     }
 }
