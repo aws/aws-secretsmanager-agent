@@ -45,7 +45,7 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
 1. Follow the instructions at [Install Rust](https://www.rust-lang.org/tools/install) in the *Rust documentation*\.
 
    ```sh
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
    . "$HOME/.cargo/env"
    ```
 
@@ -69,7 +69,7 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
 1. Follow the instructions at [Install Rust](https://www.rust-lang.org/tools/install) in the *Rust documentation*\.
 
    ```sh
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
    . "$HOME/.cargo/env"
    ```
 
