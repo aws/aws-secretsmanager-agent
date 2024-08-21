@@ -3,7 +3,7 @@
 PATH=/bin:/usr/bin:/sbin:/usr/sbin # Use a safe path
 
 AGENTDIR=/opt/aws/secretsmanageragent
-AGENTBIN=aws-secrets-manager-agent
+AGENTBIN=aws_secretsmanager_agent
 TOKENGROUP=awssmatokenreader
 AGENTUSER=awssmauser
 TOKENSCRIPT=awssmaseedtoken
@@ -27,11 +27,12 @@ if [ ! -r ${AGENTBIN} ]; then
 fi
 
 groupadd -f ${TOKENGROUP}
-useradd -r -m -g ${TOKENGROUP} -d ${AGENTDIR} ${AGENTUSER}
+useradd -r -m -g ${TOKENGROUP} -d ${AGENTDIR} ${AGENTUSER} || true
 chmod 755 ${AGENTDIR}
 
 install -D -T -m 755 ${AGENTBIN} ${AGENTDIR}/bin/${AGENTBIN}
 install -D -T -m 755 ${TOKENSCRIPT} ${AGENTDIR}/bin/${TOKENSCRIPT}
+chown -R ${AGENTUSER} ${AGENTDIR}
 install -T -m 755 ${TOKENSCRIPT}.service ${SYSTEMDFILES}/${TOKENSCRIPT}.service 
 install -T -m 755 ${AGENTSCRIPT}.service ${SYSTEMDFILES}/${AGENTSCRIPT}.service
 
