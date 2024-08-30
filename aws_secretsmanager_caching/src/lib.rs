@@ -252,28 +252,16 @@ impl SecretsManagerCachingClient {
             None => return Ok(false),
         };
 
-        let cached_version_id = &cached_value.version_id.clone().unwrap();
-
-        if let Some(version_id) = version_id {
-            // If we are requesting the same version id already in the cache, and that version ID still exists in AWS Secrets Manager
-            // then the value is current
-            let version_ids_match = version_id.eq(cached_version_id);
-
-            // If a version stage was requested, check that it matches the one in the cache
-            let version_stages_match = match version_stage {
-                Some(version_stage) => match cached_value.version_stages {
-                    Some(version_stages) => version_stages.contains(&version_stage.to_owned()),
-                    // Version stage parameter was requested but was not found in the cache, forward request to AWS Secrets Manager
-                    None => false,
-                },
-                // No version stage requested, we don't need to check that it's valid
-                None => true,
-            };
-
-            return Ok(version_ids_match && version_stages_match);
+        // Only version id is given, then check if the version id still exists
+        if version_id.is_some() && version_stage.is_none() {
+            return Ok(real_vids_to_stages.iter().any(|(k, _)| k.eq(version_id.unwrap())));
         }
 
-        // Version id parameter was not specified
+        // If no version id is given, use the cached version id
+        let version_id = match version_id {
+            Some(id) => id.to_owned(),
+            None => cached_value.version_id.clone().unwrap(),
+        };
 
         // If no version stage was passed, check AWSCURRENT
         let version_stage = match version_stage {
@@ -281,20 +269,8 @@ impl SecretsManagerCachingClient {
             None => "AWSCURRENT".to_owned(),
         };
 
-        if let Some(cached_stages) = cached_value.version_stages {
-            // IF The desired label matches the one in the cache
-            if cached_stages.contains(&version_stage)
-            // AND version ids to stages in AWS Secrets Manager contains the version label
-            && real_vids_to_stages
-            .iter()
-            // AND the version id in AWS Secrets Manager already matches the version id in the cache
-                    .any(|(k, v)| k.eq(cached_version_id) && v.contains(&version_stage))
-            {
-                return Ok(true);
-            }
-        }
-
-        Ok(false)
+        // True if the version id and version stage match real_vids_to_stages in AWS Secrets Manager
+        Ok(real_vids_to_stages.iter().any(|(k, v)| k.eq(&version_id) && v.contains(&version_stage)))
     }
 }
 

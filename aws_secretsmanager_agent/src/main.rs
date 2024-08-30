@@ -79,10 +79,9 @@ fn forever() -> bool {
 ///
 /// # Arguments
 ///
-/// * `addr` - The socket address on which the daemon is listening.
+/// * `args` - The command line arguments.
 /// * `report` - A call back used to report startup and the listener port.
 /// * `end` - A call back used to signal shut down.
-///
 /// # Returns
 ///
 /// * `Ok(())` - Never retuned when started by the main entry point.
