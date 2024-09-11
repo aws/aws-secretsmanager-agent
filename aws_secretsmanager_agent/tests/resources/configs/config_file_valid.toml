@@ -6,8 +6,8 @@ ssrf_env_variables = ["MY_TOKEN"]
 path_prefix = "/other"
 # checking that number with no quotes work.
 ttl_seconds = 300
-# checking that numbe with single quote works
+# checking that number with single quote works
 cache_size = '1000'
 max_conn = 10
 region = "us-west-2"
-static_stability = true
+ignore_transient_errors = false

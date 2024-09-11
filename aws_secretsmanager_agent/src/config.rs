@@ -22,7 +22,7 @@ const DEFAULT_SSRF_ENV_VARIABLES: [&str; 3] = [
     "AWS_CONTAINER_AUTHORIZATION_TOKEN",
 ];
 const DEFAULT_PATH_PREFIX: &str = "/v1/";
-const DEFAULT_STATIC_STABILITY: bool = true;
+const DEFAULT_IGNORE_TRANSIENT_ERRORS: bool = true;
 
 const DEFAULT_REGION: Option<String> = None;
 
@@ -40,7 +40,7 @@ struct ConfigFile {
     path_prefix: String,
     max_conn: String,
     region: Option<String>,
-    static_stability: bool,
+    ignore_transient_errors: bool,
 }
 
 /// The log levels supported by the daemon.
@@ -101,7 +101,7 @@ pub struct Config {
     region: Option<String>,
 
     /// Whether the agent should serve cached data on transient refresh errors
-    static_stability: bool,
+    ignore_transient_errors: bool,
 }
 
 /// The default configuration options.
@@ -144,7 +144,7 @@ impl Config {
             .set_default("path_prefix", DEFAULT_PATH_PREFIX)?
             .set_default("max_conn", DEFAULT_MAX_CONNECTIONS)?
             .set_default("region", DEFAULT_REGION)?
-            .set_default("static_stability", DEFAULT_STATIC_STABILITY)?;
+            .set_default("ignore_transient_errors", DEFAULT_IGNORE_TRANSIENT_ERRORS)?;
 
         // Merge the config overrides onto the default configurations, if provided.
         config = match file_path {
@@ -242,9 +242,9 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// * `static_stability` - Whether the client should serve cached data on transient refresh errors. Defaults to "true"
-    pub fn static_stability(&self) -> bool {
-        self.static_stability
+    /// * `ignore_transient_errors` - Whether the client should serve cached data on transient refresh errors. Defaults to "true"
+    pub fn ignore_transient_errors(&self) -> bool {
+        self.ignore_transient_errors
     }
 
     /// Private helper that fills in the Config instance from the specified
@@ -294,7 +294,7 @@ impl Config {
                 None,
             )?,
             region: config_file.region,
-            static_stability: config_file.static_stability,
+            ignore_transient_errors: config_file.ignore_transient_errors,
         };
 
         // Additional validations.
@@ -365,7 +365,7 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    /// Test helper function that returns the a ConfigFile with default values.
+    /// Test helper function that returns a ConfigFile with default values.
     fn get_default_config_file() -> ConfigFile {
         ConfigFile {
             log_level: String::from(DEFAULT_LOG_LEVEL),
@@ -377,7 +377,7 @@ mod tests {
             path_prefix: String::from(DEFAULT_PATH_PREFIX),
             max_conn: String::from(DEFAULT_MAX_CONNECTIONS),
             region: None,
-            static_stability: DEFAULT_STATIC_STABILITY,
+            ignore_transient_errors: DEFAULT_IGNORE_TRANSIENT_ERRORS,
         }
     }
 
@@ -403,7 +403,7 @@ mod tests {
         assert_eq!(config.clone().path_prefix(), DEFAULT_PATH_PREFIX);
         assert_eq!(config.clone().max_conn(), 800);
         assert_eq!(config.clone().region(), None);
-        assert_eq!(config.static_stability(), true);
+        assert_eq!(config.ignore_transient_errors(), true);
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -428,7 +428,7 @@ mod tests {
         assert_eq!(config.clone().path_prefix(), "/other");
         assert_eq!(config.clone().max_conn(), 10);
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
-        assert_eq!(config.static_stability(), true);
+        assert_eq!(config.ignore_transient_errors(), false);
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.

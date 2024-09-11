@@ -8,7 +8,7 @@
 //! AWS Secrets Manager Caching Library
 
 /// Error types
-mod error;
+pub mod error;
 /// Output of secret store
 pub mod output;
 /// Manages the lifecycle of cached secrets
@@ -33,7 +33,7 @@ pub struct SecretsManagerCachingClient {
     asm_client: SecretsManagerClient,
     /// A store used to cache secrets.
     store: RwLock<Box<dyn SecretStore>>,
-    static_stability: bool,
+    ignore_transient_errors: bool,
 }
 
 impl SecretsManagerCachingClient {
@@ -44,7 +44,7 @@ impl SecretsManagerCachingClient {
     /// * `asm_client` - Initialized AWS SDK Secrets Manager client instance
     /// * `max_size` - Maximum size of the store.
     /// * `ttl` - Time-to-live of the secrets in the store.
-    /// * `static_stability` - Whether the client should serve cached data on transient refresh errors
+    /// * `ignore_transient_errors` - Whether the client should serve cached data on transient refresh errors
     /// ```rust
     /// use aws_sdk_secretsmanager::Client as SecretsManagerClient;
     /// use aws_sdk_secretsmanager::{config::Region, Config};
@@ -67,12 +67,12 @@ impl SecretsManagerCachingClient {
         asm_client: SecretsManagerClient,
         max_size: NonZeroUsize,
         ttl: Duration,
-        static_stability: bool,
+        ignore_transient_errors: bool,
     ) -> Result<Self, SecretStoreError> {
         Ok(Self {
             asm_client,
             store: RwLock::new(Box::new(MemoryStore::new(max_size, ttl))),
-            static_stability,
+            ignore_transient_errors,
         })
     }
 
@@ -170,18 +170,7 @@ impl SecretsManagerCachingClient {
             }
             Err(SecretStoreError::CacheExpired(cached_value)) => {
                 drop(read_lock);
-                match self
-                    .refresh_secret_value(
-                        secret_id,
-                        version_id,
-                        version_stage,
-                        Some(cached_value.clone()),
-                    )
-                    .await
-                {
-                    Ok(r) => Ok(r),
-                    Err(e) => Err(e.into()),
-                }
+                Ok(self.refresh_secret_value(secret_id, version_id, version_stage, Some(cached_value)).await?)
             }
             Err(e) => Err(Box::new(e)),
         }
@@ -201,7 +190,7 @@ impl SecretsManagerCachingClient {
         version_stage: Option<&str>,
         cached_value: Option<Box<GetSecretValueOutputDef>>,
     ) -> Result<GetSecretValueOutputDef, Box<dyn Error>> {
-        if let Some(cached_value) = cached_value {
+        if let Some(ref cached_value) = cached_value {
             // The cache already had a value in it, we can quick-refresh it if the value is still current.
             if self
                 .is_current(version_id, version_stage, cached_value.clone())
@@ -215,20 +204,22 @@ impl SecretsManagerCachingClient {
                     *cached_value.clone(),
                 )?;
                 // Serve the cached value
-                return Ok(*cached_value);
+                return Ok(*cached_value.clone());
             }
         }
 
-        let response = self
+        let result: GetSecretValueOutputDef = match self
             .asm_client
             .get_secret_value()
             .secret_id(secret_id)
             .set_version_id(version_id.map(String::from))
             .set_version_stage(version_stage.map(String::from))
             .send()
-            .await?;
-
-        let result: GetSecretValueOutputDef = response.into();
+            .await {
+            Ok(r) => r.into(),
+            Err(e) if self.ignore_transient_errors && is_transient_error(&e) && cached_value.is_some() => *cached_value.unwrap(),
+            Err(e) => Err(e)?,
+        };
 
         self.store.write().await.write_secret_value(
             secret_id.to_owned(),
@@ -263,13 +254,8 @@ impl SecretsManagerCachingClient {
             .await
         {
             Ok(r) => r,
-            Err(e) if self.static_stability => {
-                return match is_transient_error(&e) {
-                    true => Ok(true),
-                    false => Err(e.into()),
-                }
-            }
-            Err(e) => return Err(e.into()),
+            Err(e) if self.ignore_transient_errors && is_transient_error(&e) => return Ok(true),
+            Err(e) => Err(e)?,
         };
 
         let real_vids_to_stages = match describe.version_ids_to_stages() {
@@ -306,22 +292,24 @@ mod tests {
 
     use super::*;
 
-    fn fake_client(ttl: Option<Duration>) -> SecretsManagerCachingClient {
+    use aws_smithy_runtime_api::client::http::SharedHttpClient;
+
+    fn fake_client(ttl: Option<Duration>, ignore_transient_errors: bool, http_client: Option<SharedHttpClient>, endpoint_url: Option<String>) -> SecretsManagerCachingClient {
         SecretsManagerCachingClient::new(
-            asm_mock::def_fake_client(),
+            asm_mock::def_fake_client(http_client, endpoint_url),
             NonZeroUsize::new(1000).unwrap(),
             match ttl {
                 Some(ttl) => ttl,
                 None => Duration::from_secs(1000),
             },
-            false,
+            ignore_transient_errors,
         )
         .expect("client should create")
     }
 
     #[tokio::test]
     async fn test_get_secret_value() {
-        let client = fake_client(None);
+        let client = fake_client(None, false, None, None);
         let secret_id = "test_secret";
 
         let response = client
@@ -347,7 +335,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_secret_value_version_id() {
-        let client = fake_client(None);
+        let client = fake_client(None, false, None, None);
         let secret_id = "test_secret";
         let version_id = "test_version";
 
@@ -375,7 +363,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_secret_value_version_stage() {
-        let client = fake_client(None);
+        let client = fake_client(None, false, None, None);
         let secret_id = "test_secret";
         let stage_label = "STAGEHERE";
 
@@ -399,7 +387,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_secret_value_version_id_and_stage() {
-        let client = fake_client(None);
+        let client = fake_client(None, false, None, None);
         let secret_id = "test_secret";
         let version_id = "test_version";
         let stage_label = "STAGEHERE";
@@ -425,7 +413,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_cache_expired() {
-        let client = fake_client(Some(Duration::from_secs(0)));
+        let client = fake_client(Some(Duration::from_secs(0)), false, None, None);
         let secret_id = "test_secret";
 
         // Run through this twice to test the cache expiration
@@ -459,7 +447,7 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_get_secret_value_kms_access_denied() {
-        let client = fake_client(None);
+        let client = fake_client(None, false, None, None);
         let secret_id = "KMSACCESSDENIEDabcdef";
 
         client
@@ -471,7 +459,7 @@ mod tests {
     #[tokio::test]
     #[should_panic]
     async fn test_get_secret_value_resource_not_found() {
-        let client = fake_client(None);
+        let client = fake_client(None, false, None, None);
         let secret_id = "NOTFOUNDfasefasef";
 
         client
@@ -482,15 +470,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_current_default_succeeds() {
-        let client = fake_client(Some(Duration::from_secs(0)));
+        let client = fake_client(Some(Duration::from_secs(0)), false, None, None);
         let secret_id = "test_secret";
 
         let res1 = client
             .get_secret_value(secret_id, None, None)
             .await
             .unwrap();
-
-        sleep(Duration::from_millis(10)).await;
 
         let res2 = client
             .get_secret_value(secret_id, None, None)
@@ -502,7 +488,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_current_version_id_succeeds() {
-        let client = fake_client(Some(Duration::from_secs(0)));
+        let client = fake_client(Some(Duration::from_secs(0)), false, None, None);
         let secret_id = "test_secret";
         let version_id = Some("test_version");
 
@@ -510,8 +496,6 @@ mod tests {
             .get_secret_value(secret_id, version_id, None)
             .await
             .unwrap();
-
-        sleep(Duration::from_millis(10)).await;
 
         let res2 = client
             .get_secret_value(secret_id, version_id, None)
@@ -523,7 +507,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_current_version_stage_succeeds() {
-        let client = fake_client(Some(Duration::from_secs(0)));
+        let client = fake_client(Some(Duration::from_secs(0)), false, None, None);
         let secret_id = "test_secret";
         let version_stage = Some("VERSIONSTAGE");
 
@@ -531,8 +515,6 @@ mod tests {
             .get_secret_value(secret_id, None, version_stage)
             .await
             .unwrap();
-
-        sleep(Duration::from_millis(10)).await;
 
         let res2 = client
             .get_secret_value(secret_id, None, version_stage)
@@ -544,7 +526,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_current_both_version_id_and_version_stage_succeeds() {
-        let client = fake_client(Some(Duration::from_secs(0)));
+        let client = fake_client(Some(Duration::from_secs(0)), false, None, None);
         let secret_id = "test_secret";
         let version_id = Some("test_version");
         let version_stage = Some("VERSIONSTAGE");
@@ -553,8 +535,6 @@ mod tests {
             .get_secret_value(secret_id, version_id, version_stage)
             .await
             .unwrap();
-
-        sleep(Duration::from_millis(10)).await;
 
         let res2 = client
             .get_secret_value(secret_id, version_id, version_stage)
@@ -566,7 +546,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_current_describe_access_denied_fails() {
-        let client = fake_client(Some(Duration::from_secs(0)));
+        let client = fake_client(Some(Duration::from_secs(0)), false, None, None);
         let secret_id = "DESCRIBEACCESSDENIED_test_secret";
         let version_id = Some("test_version");
 
@@ -575,17 +555,95 @@ mod tests {
             .await
             .unwrap();
 
-        sleep(Duration::from_millis(10)).await;
-
         match client.get_secret_value(secret_id, version_id, None).await {
             Ok(_) => panic!("Expected failure"),
             Err(_) => (),
         }
     }
 
+    #[tokio::test]
+    async fn test_is_current_describe_timeout_error_succeeds() {
+        use aws_smithy_runtime::client::http::test_util::wire::{WireMockServer, ReplayedEvent};
+        use asm_mock::GSV_BODY;
+
+        let mock = WireMockServer::start(vec![
+            ReplayedEvent::with_body(GSV_BODY),
+            ReplayedEvent::Timeout
+        ]).await;
+        let client = fake_client(Some(Duration::from_secs(0)), true, Some(mock.http_client()), Some(mock.endpoint_url()));
+        let secret_id = "DESCRIBETIMEOUT_test_secret";
+        let version_id = Some("test_version");
+
+        let res1 = client
+            .get_secret_value(secret_id, version_id, None)
+            .await
+            .unwrap();
+
+        let res2 = client
+            .get_secret_value(secret_id, version_id, None)
+            .await
+            .unwrap();
+
+        mock.shutdown();
+
+        assert_eq!(res1, res2)
+    }
+
+    #[tokio::test]
+    async fn test_is_current_describe_service_error_succeeds() {
+        let client = fake_client(Some(Duration::from_secs(0)), true, None, None);
+        let secret_id = "DESCRIBESERVICEERROR_test_secret";
+        let version_id = Some("test_version");
+        let version_stage = Some("VERSIONSTAGE");
+
+        let res1 = client
+            .get_secret_value(secret_id, version_id, version_stage)
+            .await
+            .unwrap();
+
+        let res2 = client
+            .get_secret_value(secret_id, version_id, version_stage)
+            .await
+            .unwrap();
+
+        assert_eq!(res1, res2)
+    }
+
+    #[tokio::test]
+    async fn test_is_current_gsv_timeout_error_succeeds() {
+        use aws_smithy_runtime::client::http::test_util::wire::{WireMockServer, ReplayedEvent};
+        use asm_mock::GSV_BODY;
+        use asm_mock::DESC_BODY;
+
+        let mock = WireMockServer::start(vec![
+            ReplayedEvent::with_body(GSV_BODY.replace("{{version}}", "old_version").replace("{{label}}", "AWSCURRENT")),
+            ReplayedEvent::with_body(DESC_BODY.replace("{{version}}", "new_version").replace("{{label}}", "AWSCURRENT")),
+            ReplayedEvent::Timeout
+        ]).await;
+        let client = fake_client(Some(Duration::from_secs(0)), true, Some(mock.http_client()), Some(mock.endpoint_url()));
+        let secret_id = "GSVTIMEOUT_test_secret";
+
+        let res1 = client
+            .get_secret_value(secret_id, None, None)
+            .await
+            .unwrap();
+
+        let res2 = client
+            .get_secret_value(secret_id, None, None)
+            .await
+            .unwrap();
+
+        mock.shutdown();
+
+        assert_eq!(res1, res2)
+    }
+
     mod asm_mock {
         use aws_sdk_secretsmanager as secretsmanager;
         use aws_smithy_runtime::client::http::test_util::infallible_client_fn;
+        use aws_smithy_runtime_api::client::http::SharedHttpClient;
+        use aws_smithy_types::timeout::TimeoutConfig;
+        use std::time::Duration;
         use aws_smithy_types::body::SdkBody;
         use http::{Request, Response};
         use secretsmanager::config::BehaviorVersion;
@@ -597,7 +655,7 @@ mod tests {
         pub const DEFAULT_LABEL: &str = "AWSCURRENT";
 
         // Template GetSecretValue responses for testing
-        const GSV_BODY: &str = r###"{
+        pub const GSV_BODY: &str = r###"{
         "ARN": "{{arn}}",
         "Name": "{{name}}",
         "VersionId": "{{version}}",
@@ -609,7 +667,7 @@ mod tests {
         }"###;
 
         // Template DescribeSecret responses for testing
-        const DESC_BODY: &str = r###"{
+        pub const DESC_BODY: &str = r###"{
           "ARN": "{{arn}}",
           "Name": "{{name}}",
           "Description": "My test secret",
@@ -641,7 +699,12 @@ mod tests {
         "Message": "is not authorized to perform: secretsmanager:DescribeSecret on resource: XXXXXXXX"
         }"###;
 
-        // Private helper to look at the request and provide the correct reponse.
+        const SECRETSMANAGER_INTERNAL_SERVICE_ERROR_BODY: &str = r###"{
+        "__type:"InternalServiceError",
+        "Message": "Internal service error"
+        }"###;
+
+        // Private helper to look at the request and provide the correct response.
         fn format_rsp(req: Request<SdkBody>) -> (u16, String) {
             let (parts, body) = req.into_parts();
 
@@ -666,6 +729,9 @@ mod tests {
                 "secretsmanager.DescribeSecret" if name.contains("DESCRIBEACCESSDENIED") => {
                     (400, SECRETSMANAGER_ACCESS_DENIED_BODY)
                 }
+                "secretsmanager.DescribeSecret" if name.contains("DESCRIBESERVICEERROR") => {
+                    (500, SECRETSMANAGER_INTERNAL_SERVICE_ERROR_BODY)
+                }
                 "secretsmanager.DescribeSecret" => (200, DESC_BODY),
                 _ => panic!("Unknown operation"),
             };
@@ -680,7 +746,7 @@ mod tests {
         }
 
         // Test client that stubs off network call and provides a canned response.
-        pub fn def_fake_client() -> secretsmanager::Client {
+        pub fn def_fake_client(http_client: Option<SharedHttpClient>, endpoint_url: Option<String>) -> secretsmanager::Client {
             let fake_creds = secretsmanager::config::Credentials::new(
                 "AKIDTESTKEY",
                 "astestsecretkey",
@@ -688,22 +754,32 @@ mod tests {
                 None,
                 "",
             );
-            let http_client = infallible_client_fn(|_req| {
-                let (code, rsp) = format_rsp(_req);
-                Response::builder()
-                    .status(code)
-                    .body(SdkBody::from(rsp))
-                    .unwrap()
-            });
 
-            secretsmanager::Client::from_conf(
-                secretsmanager::Config::builder()
-                    .behavior_version(BehaviorVersion::latest())
-                    .credentials_provider(fake_creds)
-                    .region(secretsmanager::config::Region::new("us-west-2"))
-                    .http_client(http_client)
-                    .build(),
-            )
+            let mut config_builder = secretsmanager::Config::builder()
+                .behavior_version(BehaviorVersion::latest())
+                .credentials_provider(fake_creds)
+                .region(secretsmanager::config::Region::new("us-west-2"))
+                .timeout_config(
+                    TimeoutConfig::builder()
+                        .operation_attempt_timeout(Duration::from_millis(100))
+                        .build(),
+                )
+                .http_client(match http_client {
+                    Some(custom_client) => custom_client,
+                    None => infallible_client_fn(|_req| {
+                        let (code, rsp) = format_rsp(_req);
+                        Response::builder()
+                            .status(code)
+                            .body(SdkBody::from(rsp))
+                            .unwrap()
+                    })
+                });
+            config_builder = match endpoint_url {
+                Some(endpoint_url) => config_builder.endpoint_url(endpoint_url),
+                None => config_builder
+            };
+
+            secretsmanager::Client::from_conf(config_builder.build())
         }
     }
 }
