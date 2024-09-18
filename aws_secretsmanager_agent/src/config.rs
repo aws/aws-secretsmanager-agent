@@ -16,7 +16,11 @@ const DEFAULT_HTTP_PORT: &str = "2773";
 const DEFAULT_TTL_SECONDS: &str = "300";
 const DEFAULT_CACHE_SIZE: &str = "1000";
 const DEFAULT_SSRF_HEADERS: [&str; 2] = ["X-Aws-Parameters-Secrets-Token", "X-Vault-Token"];
-const DEFAULT_SSRF_ENV_VARIABLES: [&str; 2] = ["AWS_TOKEN", "AWS_SESSION_TOKEN"];
+const DEFAULT_SSRF_ENV_VARIABLES: [&str; 3] = [
+    "AWS_TOKEN",
+    "AWS_SESSION_TOKEN",
+    "AWS_CONTAINER_AUTHORIZATION_TOKEN",
+];
 const DEFAULT_PATH_PREFIX: &str = "/v1/";
 
 const DEFAULT_REGION: Option<String> = None;
@@ -194,7 +198,7 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// * `ssrf_env_variables` - The name of the env variable containing the SSRF token value. Defaults to ["AWS_TOKEN", "AWS_SESSION_TOKEN"].
+    /// * `ssrf_env_variables` - The name of the env variable containing the SSRF token value. Defaults to ["AWS_TOKEN", "AWS_SESSION_TOKEN", "AWS_CONTAINER_AUTHORIZATION_TOKEN"].
     pub fn ssrf_env_variables(&self) -> Vec<String> {
         self.ssrf_env_variables.clone()
     }

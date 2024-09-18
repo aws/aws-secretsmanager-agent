@@ -504,7 +504,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     #[should_panic(
-        expected = "Could not read SSRF token variable(s) [\"AWS_TOKEN\", \"AWS_SESSION_TOKEN\"]: Permission denied (os error 13) !!!"
+        expected = "Could not read SSRF token variable(s) [\"AWS_TOKEN\", \"AWS_SESSION_TOKEN\", \"AWS_CONTAINER_AUTHORIZATION_TOKEN\"]: Permission denied (os error 13) !!!"
     )]
     async fn bad_token_file() {
         // Generate a temp file with the default token and take away read permissions.
