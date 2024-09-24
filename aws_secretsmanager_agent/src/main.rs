@@ -222,14 +222,14 @@ mod tests {
     use hyper::{client, Request, StatusCode};
     use hyper_util::rt::TokioIo;
     use serde_json::Value;
-    use std;
+
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::Duration;
     use std::{fs, thread};
-    use tokio;
+
     use tokio::net::TcpStream;
     use tokio::task::JoinSet;
     use tokio::time::timeout;
@@ -626,7 +626,7 @@ mod tests {
     // Verify a query using the pending label
     #[tokio::test]
     async fn pending_success() {
-        let req = format!("/secretsmanager/get?secretId=MyTest&versionStage=AWSPENDING");
+        let req = "/secretsmanager/get?secretId=MyTest&versionStage=AWSPENDING".to_string();
         let (status, body) = run_request(&req).await;
         assert_eq!(status, StatusCode::OK);
         validate_response_extra("MyTest", DEFAULT_VERSION, vec!["AWSPENDING"], body);
@@ -696,7 +696,7 @@ mod tests {
     #[tokio::test]
     async fn path_pending_success() {
         let req = "/v1/My/Test?versionStage=AWSPENDING";
-        let (status, body) = run_request(&req).await;
+        let (status, body) = run_request(req).await;
         assert_eq!(status, StatusCode::OK);
         validate_response_extra("My/Test", DEFAULT_VERSION, vec!["AWSPENDING"], body);
     }
