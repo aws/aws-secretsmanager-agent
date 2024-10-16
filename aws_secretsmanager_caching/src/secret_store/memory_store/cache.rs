@@ -16,7 +16,7 @@ impl<K: Hash + Eq, V> Default for Cache<K, V> {
 }
 
 impl<K: Hash + Eq, V> Cache<K, V> {
-    /// Returns a new LRUCache with default configuration.
+    /// Returns a new least recently updated cache with default configuration.
     pub fn new(max_size: NonZeroUsize) -> Self {
         Cache {
             entries: LinkedHashMap::new(),
@@ -31,7 +31,7 @@ impl<K: Hash + Eq, V> Cache<K, V> {
 
     /// Inserts a key into the cache.
     ///  If the key already exists, it overwrites it
-    ///  If the insert results in too many keys in the cache, the LRU item is removed.
+    ///  If the insert results in too many keys in the cache, the oldest updated entry is removed.
     pub fn insert(&mut self, key: K, val: V) {
         self.entries.insert(key, val);
         if self.len() > self.max_size.get() {

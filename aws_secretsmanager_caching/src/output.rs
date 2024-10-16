@@ -7,9 +7,8 @@ use std::time::SystemTime;
 
 /// Exhaustive structure to store the secret value
 ///
-/// We tried to De/Serialize the remote types using <https://serde.rs/remote-derive.html> but couldn't as the remote types are non_exhaustive
-/// This is a Rust limitation; for logical explaination see <https://amzn-aws.slack.com/archives/C017S7L2430/p1688495903715449>
-/// We can remove this when aws sdk implements De/Serialize trait for the types.
+/// We tried to De/Serialize the remote types using <https://serde.rs/remote-derive.html> but couldn't as the remote types are non_exhaustive,
+/// which is a Rust limitation. We can remove this when aws sdk implements De/Serialize trait for the types.
 #[serde_as]
 #[derive(::std::clone::Clone, ::std::cmp::PartialEq, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase")]
