@@ -141,17 +141,17 @@ Based on the type of compute, you have several options for installing the Secret
 
 1. Copy the binary from the `target/` directory to the `aws_secretsmanager_agent/configuration/` directory:
 
-2. ```sh
+    ```sh
     cp target/release/aws_secretsmanager_agent aws_secretsmanager_agent/configuration/.
     ```
-
 2. Use the `install` script provided in the repository:
 
     ```sh
     cd aws_secretsmanager_agent/configuration/ && ./install
     ```
 
-   The script generates a random SSRF token on startup and stores it in the file `/var/run/awssmatoken`\. The token is readable by the `awssmatokenreader` group that the install script creates\. 
+   The script generates a random SSRF token on startup and stores it in the file `/var/run/awssmatoken`\. The token is readable by the `awssmatokenreader` group that the install script creates.
+
 
 3. To allow your application to read the token file, you need to add the user account that your application runs under to the `awssmatokenreader` group\. For example, you can grant permissions for your application to read the token file with the following usermod command, where *<APP\_USER>* is the user ID under which your application runs\.
 
@@ -295,7 +295,7 @@ The following curl example shows how to get a secret from the Secrets Manager Ag
 ```sh
 curl -v -H \
     "X-Aws-Parameters-Secrets-Token: $(</var/run/awssmatoken)" \
-    'http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>}'; \
+    'http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>'; \
     echo
 ```
 
@@ -311,7 +311,7 @@ import json
 # Function that fetches the secret from Secrets Manager Agent for the provided secret id. 
 def get_secret():
     # Construct the URL for the GET request
-    url = f"http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>}"
+    url = f"http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>"
 
     # Get the SSRF token from the token file
     with open('/var/run/awssmatoken') as fp:
