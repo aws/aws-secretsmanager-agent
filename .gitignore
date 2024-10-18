@@ -3,6 +3,7 @@ target/
 **/*.rs.bk
 *.pdb
 logs/
+aws_secretsmanager_agent/configuration/aws_secretsmanager_agent
 
 #######
 
