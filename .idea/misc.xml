@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ComposerSettings">
+    <execution />
+  </component>
+  <component name="JsBuildToolPackageJson" sorting="DEFINITION_ORDER" />
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="11" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+  <component name="accountSettings">
+    <option name="activeRegion" value="us-west-2" />
+    <option name="recentlyUsedRegions">
+      <list>
+        <option value="us-west-2" />
+      </list>
+    </option>
+  </component>
+</project>
