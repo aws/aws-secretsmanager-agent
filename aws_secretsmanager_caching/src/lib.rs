@@ -61,6 +61,7 @@ impl SecretsManagerCachingClient {
     ///     asm_client,
     ///     NonZeroUsize::new(1000).unwrap(),
     ///     Duration::from_secs(300),
+    ///     false,
     /// );
     /// ```
     pub fn new(
@@ -100,7 +101,7 @@ impl SecretsManagerCachingClient {
             .interceptor(CachingLibraryInterceptor);
 
         let asm_client = SecretsManagerClient::from_conf(asm_builder.build());
-        Self::new(asm_client, max_size, ttl)
+        Self::new(asm_client, max_size, ttl, false)
     }
 
     /// Create a new caching client with in-memory store from an AWS SDK client builder
@@ -130,6 +131,7 @@ impl SecretsManagerCachingClient {
     /// asm_builder,
     /// NonZeroUsize::new(1000).unwrap(),
     /// Duration::from_secs(300),
+    /// false,
     /// )
     /// .await.unwrap();
     /// })
@@ -138,11 +140,12 @@ impl SecretsManagerCachingClient {
         asm_builder: aws_sdk_secretsmanager::config::Builder,
         max_size: NonZeroUsize,
         ttl: Duration,
+        ignore_transient_errors: bool,
     ) -> Result<Self, SecretStoreError> {
         let asm_client = SecretsManagerClient::from_conf(
             asm_builder.interceptor(CachingLibraryInterceptor).build(),
         );
-        Self::new(asm_client, max_size, ttl)
+        Self::new(asm_client, max_size, ttl, ignore_transient_errors)
     }
 
     /// Retrieves the value of the secret from the specified version.
