@@ -1,10 +1,10 @@
 use crate::config::Config;
 use crate::constants::{APPNAME, MAX_REQ_TIME_SEC, VERSION};
-use aws_secretsmanager_caching::error::is_transient_error;
 use aws_sdk_secretsmanager::config::interceptors::BeforeTransmitInterceptorContextMut;
 use aws_sdk_secretsmanager::config::{ConfigBag, Intercept, RuntimeComponents};
 #[cfg(not(test))]
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
+use aws_secretsmanager_caching::error::is_transient_error;
 use std::env::VarError;
 use std::fs;
 use std::time::Duration;

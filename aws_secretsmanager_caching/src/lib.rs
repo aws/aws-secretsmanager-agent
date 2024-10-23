@@ -173,7 +173,9 @@ impl SecretsManagerCachingClient {
             }
             Err(SecretStoreError::CacheExpired(cached_value)) => {
                 drop(read_lock);
-                Ok(self.refresh_secret_value(secret_id, version_id, version_stage, Some(cached_value)).await?)
+                Ok(self
+                    .refresh_secret_value(secret_id, version_id, version_stage, Some(cached_value))
+                    .await?)
             }
             Err(e) => Err(Box::new(e)),
         }
@@ -218,9 +220,16 @@ impl SecretsManagerCachingClient {
             .set_version_id(version_id.map(String::from))
             .set_version_stage(version_stage.map(String::from))
             .send()
-            .await {
+            .await
+        {
             Ok(r) => r.into(),
-            Err(e) if self.ignore_transient_errors && is_transient_error(&e) && cached_value.is_some() => *cached_value.unwrap(),
+            Err(e)
+                if self.ignore_transient_errors
+                    && is_transient_error(&e)
+                    && cached_value.is_some() =>
+            {
+                *cached_value.unwrap()
+            }
             Err(e) => Err(e)?,
         };
 
@@ -269,7 +278,9 @@ impl SecretsManagerCachingClient {
 
         // Only version id is given, then check if the version id still exists
         if version_id.is_some() && version_stage.is_none() {
-            return Ok(real_vids_to_stages.iter().any(|(k, _)| k.eq(version_id.unwrap())));
+            return Ok(real_vids_to_stages
+                .iter()
+                .any(|(k, _)| k.eq(version_id.unwrap())));
         }
 
         // If no version id is given, use the cached version id
@@ -285,7 +296,9 @@ impl SecretsManagerCachingClient {
         };
 
         // True if the version id and version stage match real_vids_to_stages in AWS Secrets Manager
-        Ok(real_vids_to_stages.iter().any(|(k, v)| k.eq(&version_id) && v.contains(&version_stage)))
+        Ok(real_vids_to_stages
+            .iter()
+            .any(|(k, v)| k.eq(&version_id) && v.contains(&version_stage)))
     }
 }
 
@@ -297,7 +310,12 @@ mod tests {
 
     use aws_smithy_runtime_api::client::http::SharedHttpClient;
 
-    fn fake_client(ttl: Option<Duration>, ignore_transient_errors: bool, http_client: Option<SharedHttpClient>, endpoint_url: Option<String>) -> SecretsManagerCachingClient {
+    fn fake_client(
+        ttl: Option<Duration>,
+        ignore_transient_errors: bool,
+        http_client: Option<SharedHttpClient>,
+        endpoint_url: Option<String>,
+    ) -> SecretsManagerCachingClient {
         SecretsManagerCachingClient::new(
             asm_mock::def_fake_client(http_client, endpoint_url),
             NonZeroUsize::new(1000).unwrap(),
@@ -566,14 +584,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_current_describe_timeout_error_succeeds() {
-        use aws_smithy_runtime::client::http::test_util::wire::{WireMockServer, ReplayedEvent};
         use asm_mock::GSV_BODY;
+        use aws_smithy_runtime::client::http::test_util::wire::{ReplayedEvent, WireMockServer};
 
         let mock = WireMockServer::start(vec![
             ReplayedEvent::with_body(GSV_BODY),
-            ReplayedEvent::Timeout
-        ]).await;
-        let client = fake_client(Some(Duration::from_secs(0)), true, Some(mock.http_client()), Some(mock.endpoint_url()));
+            ReplayedEvent::Timeout,
+        ])
+        .await;
+        let client = fake_client(
+            Some(Duration::from_secs(0)),
+            true,
+            Some(mock.http_client()),
+            Some(mock.endpoint_url()),
+        );
         let secret_id = "DESCRIBETIMEOUT_test_secret";
         let version_id = Some("test_version");
 
@@ -614,16 +638,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_is_current_gsv_timeout_error_succeeds() {
-        use aws_smithy_runtime::client::http::test_util::wire::{WireMockServer, ReplayedEvent};
-        use asm_mock::GSV_BODY;
         use asm_mock::DESC_BODY;
+        use asm_mock::GSV_BODY;
+        use aws_smithy_runtime::client::http::test_util::wire::{ReplayedEvent, WireMockServer};
 
         let mock = WireMockServer::start(vec![
-            ReplayedEvent::with_body(GSV_BODY.replace("{{version}}", "old_version").replace("{{label}}", "AWSCURRENT")),
-            ReplayedEvent::with_body(DESC_BODY.replace("{{version}}", "new_version").replace("{{label}}", "AWSCURRENT")),
-            ReplayedEvent::Timeout
-        ]).await;
-        let client = fake_client(Some(Duration::from_secs(0)), true, Some(mock.http_client()), Some(mock.endpoint_url()));
+            ReplayedEvent::with_body(
+                GSV_BODY
+                    .replace("{{version}}", "old_version")
+                    .replace("{{label}}", "AWSCURRENT"),
+            ),
+            ReplayedEvent::with_body(
+                DESC_BODY
+                    .replace("{{version}}", "new_version")
+                    .replace("{{label}}", "AWSCURRENT"),
+            ),
+            ReplayedEvent::Timeout,
+        ])
+        .await;
+        let client = fake_client(
+            Some(Duration::from_secs(0)),
+            true,
+            Some(mock.http_client()),
+            Some(mock.endpoint_url()),
+        );
         let secret_id = "GSVTIMEOUT_test_secret";
 
         let res1 = client
@@ -645,12 +683,12 @@ mod tests {
         use aws_sdk_secretsmanager as secretsmanager;
         use aws_smithy_runtime::client::http::test_util::infallible_client_fn;
         use aws_smithy_runtime_api::client::http::SharedHttpClient;
-        use aws_smithy_types::timeout::TimeoutConfig;
-        use std::time::Duration;
         use aws_smithy_types::body::SdkBody;
+        use aws_smithy_types::timeout::TimeoutConfig;
         use http::{Request, Response};
         use secretsmanager::config::BehaviorVersion;
         use serde_json::Value;
+        use std::time::Duration;
 
         pub const FAKE_ARN: &str =
             "arn:aws:secretsmanager:us-west-2:123456789012:secret:{{name}}-NhBWsc";
@@ -749,7 +787,10 @@ mod tests {
         }
 
         // Test client that stubs off network call and provides a canned response.
-        pub fn def_fake_client(http_client: Option<SharedHttpClient>, endpoint_url: Option<String>) -> secretsmanager::Client {
+        pub fn def_fake_client(
+            http_client: Option<SharedHttpClient>,
+            endpoint_url: Option<String>,
+        ) -> secretsmanager::Client {
             let fake_creds = secretsmanager::config::Credentials::new(
                 "AKIDTESTKEY",
                 "astestsecretkey",
@@ -775,11 +816,11 @@ mod tests {
                             .status(code)
                             .body(SdkBody::from(rsp))
                             .unwrap()
-                    })
+                    }),
                 });
             config_builder = match endpoint_url {
                 Some(endpoint_url) => config_builder.endpoint_url(endpoint_url),
-                None => config_builder
+                None => config_builder,
             };
 
             secretsmanager::Client::from_conf(config_builder.build())
