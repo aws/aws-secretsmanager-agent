@@ -139,8 +139,7 @@ Based on the type of compute, you have several options for installing the Secret
 
 **To install the Secrets Manager Agent**
 
-1. `cp target/release/aws-secrets-manager-agent aws_secretsmanager_agent/configuration/aws-secrets-manager-agent`
-1. `cd aws_secretsmanager_agent/configuration/aws-secrets-manager-agent`
+1. `cd aws_secretsmanager_agent/configuration`
 1. Run the `install` script provided in the repository\. 
 
    The script generates a random SSRF token on startup and stores it in the file `/var/run/awssmatoken`\. The token is readable by the `awssmatokenreader` group that the install script creates\. 
