@@ -55,7 +55,7 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
    cargo build --release
    ```
 
-   You will find the executable under `target/release/aws-secrets-manager-agent`\.
+   You will find the executable under `target/release/aws_secretsmanager_agent`\.
 
 ------
 #### [ Debian\-based systems ]
@@ -79,7 +79,7 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
    cargo build --release
    ```
 
-   You will find the executable under `target/release/aws-secrets-manager-agent`\.
+   You will find the executable under `target/release/aws_secretsmanager_agent`\.
 
 ------
 #### [ Windows ]
@@ -103,7 +103,7 @@ rustup target add x86_64-pc-windows-gnu
 cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-You will find the executable at `target/x86_64-pc-windows-gnu/release/aws-secrets-manager-agent.exe`\.
+You will find the executable at `target/x86_64-pc-windows-gnu/release/aws_secretsmanager_agent.exe`\.
 
 ------
 #### [ Cross compile with Rust cross ]
@@ -336,7 +336,7 @@ def get_secret():
 
 ## Configure the Secrets Manager Agent<a name="secrets-manager-agent-config"></a>
 
-To change the configuration of the Secrets Manager Agent, create a [TOML](https://toml.io/en/) config file, and then call `./aws-secrets-manager-agent --config config.toml`\.
+To change the configuration of the Secrets Manager Agent, create a [TOML](https://toml.io/en/) config file, and then call `./aws_secretsmanager_agent --config config.toml`\.
 
 The following list shows the options you can configure for the Secrets Manager Agent\.
 + **log\_level** – The level of detail reported in logs for the Secrets Manager Agent: DEBUG, INFO, WARN, ERROR, or NONE\. The default is INFO\.
