@@ -139,7 +139,8 @@ Based on the type of compute, you have several options for installing the Secret
 
 **To install the Secrets Manager Agent**
 
-1. Use the `install` script provided in the repository\. 
+1. `cd aws_secretsmanager_agent/configuration`
+1. Run the `install` script provided in the repository\. 
 
    The script generates a random SSRF token on startup and stores it in the file `/var/run/awssmatoken`\. The token is readable by the `awssmatokenreader` group that the install script creates\. 
 
@@ -178,10 +179,13 @@ You can run the Secrets Manager Agent as a sidecar container alongside your appl
 1. Create a Dockerfile for your client application\.
 
 1. Create a Docker Compose file to run both containers, being sure that they use the same network interface\. This is necessary because the Secrets Manager Agent does not accept requests from outside the localhost interface\. The following example shows a Docker Compose file where the `network_mode` key attaches the `secrets-manager-agent` container to the network namespace of the `client-application` container, which allows them to share the same network interface\.
-**Important**  
-You must load AWS credentials and the SSRF token for the application to be able to use the Secrets Manager Agent\. See the following:  
-[Manage access](https://docs.aws.amazon.com/eks/latest/userguide/cluster-auth.html) in the *Amazon Elastic Kubernetes Service User Guide*
-[Amazon ECS task IAM role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html) in the *Amazon Elastic Container Service Developer Guide*
+
+    **Important**
+
+    You must load AWS credentials and the SSRF token for the application to be able to use the Secrets Manager Agent\. For EKS and ECS, see the following:  
+    * [Manage access](https://docs.aws.amazon.com/eks/latest/userguide/cluster-auth.html) in the *Amazon Elastic Kubernetes Service User Guide*
+    * [Amazon ECS task IAM role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html) in the *Amazon Elastic Container Service Developer Guide*
+
 
    ```yaml
    version: '3'
@@ -223,7 +227,7 @@ The following instructions show how to get a secret named *MyTest* by using the 
 
 **To create a Lambda extension that packages the Secrets Manager Agent**
 
-1. Create a Python Lambda function that queries `http://localhost:2773/secretsmanager/get?secretId=MyTest` to get the secret\. Be sure to implement retry logic in your application code to accommodate delays in initialization and registration of the Lambda extension\.
+1. Create a Python Lambda function that reads the SSRF token from environment variable `AWS_TOKEN`, and queries `http://localhost:2773/secretsmanager/get?secretId=MyTest` to get the secret. Be sure to specify environment variable `AWS_TOKEN` for your lambda, and additionally, implement retry logic in your application code to accommodate delays in initialization and registration of the Lambda extension\.
 
 1. From the root of the Secrets Manager Agent code package, run the following commands to test the Lambda extension\.
 
@@ -285,7 +289,7 @@ The following curl example shows how to get a secret from the Secrets Manager Ag
 ```sh
 curl -v -H \
     "X-Aws-Parameters-Secrets-Token: $(</var/run/awssmatoken)" \
-    'http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>}'; \
+    'http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>'; \
     echo
 ```
 
@@ -301,7 +305,7 @@ import json
 # Function that fetches the secret from Secrets Manager Agent for the provided secret id. 
 def get_secret():
     # Construct the URL for the GET request
-    url = f"http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>}"
+    url = f"http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>"
 
     # Get the SSRF token from the token file
     with open('/var/run/awssmatoken') as fp:

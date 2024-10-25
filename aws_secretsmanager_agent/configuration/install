@@ -2,7 +2,8 @@
 
 PATH=/bin:/usr/bin:/sbin:/usr/sbin # Use a safe path
 
-AGENTDIR=/opt/aws/secretsmanageragent
+AGENTTARGETDIR=/opt/aws/secretsmanageragent
+AGENTSOURCEDIR=../../target/release
 AGENTBIN=aws_secretsmanager_agent
 TOKENGROUP=awssmatokenreader
 AGENTUSER=awssmauser
@@ -21,18 +22,18 @@ if [ ! -r ${TOKENSCRIPT} ]; then
     exit 1
 fi
 
-if [ ! -r ${AGENTBIN} ]; then
+if [ ! -r ${AGENTSOURCEDIR}/${AGENTBIN} ]; then
     echo "Can not read ${AGENTBIN}" >&2
     exit 1
 fi
 
 groupadd -f ${TOKENGROUP}
-useradd -r -m -g ${TOKENGROUP} -d ${AGENTDIR} ${AGENTUSER} || true
-chmod 755 ${AGENTDIR}
+useradd -r -m -g ${TOKENGROUP} -d ${AGENTTARGETDIR} ${AGENTUSER} || true
+chmod 755 ${AGENTTARGETDIR}
 
-install -D -T -m 755 ${AGENTBIN} ${AGENTDIR}/bin/${AGENTBIN}
-install -D -T -m 755 ${TOKENSCRIPT} ${AGENTDIR}/bin/${TOKENSCRIPT}
-chown -R ${AGENTUSER} ${AGENTDIR}
+install -D -T -m 755 ${AGENTSOURCEDIR}/${AGENTBIN} ${AGENTTARGETDIR}/bin/${AGENTBIN}
+install -D -T -m 755 ${TOKENSCRIPT} ${AGENTTARGETDIR}/bin/${TOKENSCRIPT}
+chown -R ${AGENTUSER} ${AGENTTARGETDIR}
 install -T -m 755 ${TOKENSCRIPT}.service ${SYSTEMDFILES}/${TOKENSCRIPT}.service 
 install -T -m 755 ${AGENTSCRIPT}.service ${SYSTEMDFILES}/${AGENTSCRIPT}.service
 

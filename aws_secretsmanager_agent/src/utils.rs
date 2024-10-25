@@ -4,6 +4,7 @@ use aws_sdk_secretsmanager::config::interceptors::BeforeTransmitInterceptorConte
 use aws_sdk_secretsmanager::config::{ConfigBag, Intercept, RuntimeComponents};
 #[cfg(not(test))]
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
+use aws_secretsmanager_caching::error::is_transient_error;
 use std::env::VarError;
 use std::fs;
 use std::time::Duration;
@@ -136,7 +137,11 @@ pub async fn validate_and_create_asm_client(
 
     // Validate the region and credentials first
     let sts_client = aws_sdk_sts::Client::from_conf(sts_builder.build());
-    let _ = sts_client.get_caller_identity().send().await?;
+    match sts_client.get_caller_identity().send().await {
+        Ok(_) => (),
+        Err(e) if config.ignore_transient_errors() && is_transient_error(&e) => (),
+        Err(e) => Err(e)?,
+    };
 
     Ok(aws_sdk_secretsmanager::Client::from_conf(
         asm_builder.build(),
