@@ -276,6 +276,7 @@ impl SecretsManagerCachingClient {
             None => return Ok(false),
         };
 
+        #[allow(clippy::unnecessary_unwrap)]
         // Only version id is given, then check if the version id still exists
         if version_id.is_some() && version_stage.is_none() {
             return Ok(real_vids_to_stages
@@ -576,9 +577,8 @@ mod tests {
             .await
             .unwrap();
 
-        match client.get_secret_value(secret_id, version_id, None).await {
-            Ok(_) => panic!("Expected failure"),
-            Err(_) => (),
+        if (client.get_secret_value(secret_id, version_id, None).await).is_ok() {
+            panic!("Expected failure")
         }
     }
 

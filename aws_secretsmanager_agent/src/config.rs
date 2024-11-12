@@ -403,7 +403,7 @@ mod tests {
         assert_eq!(config.clone().path_prefix(), DEFAULT_PATH_PREFIX);
         assert_eq!(config.clone().max_conn(), 800);
         assert_eq!(config.clone().region(), None);
-        assert_eq!(config.ignore_transient_errors(), true);
+        assert!(config.ignore_transient_errors());
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -428,7 +428,7 @@ mod tests {
         assert_eq!(config.clone().path_prefix(), "/other");
         assert_eq!(config.clone().max_conn(), 10);
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
-        assert_eq!(config.ignore_transient_errors(), false);
+        assert!(!config.ignore_transient_errors());
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.
