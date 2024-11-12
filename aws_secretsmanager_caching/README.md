@@ -72,6 +72,7 @@ let client = match SecretsManagerCachingClient::from_builder(
     asm_builder,
     NonZeroUsize::new(1000).unwrap(),
     Duration::from_secs(300),
+    false
 )
 .await
 {

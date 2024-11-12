@@ -21,14 +21,14 @@ struct Key {
 #[derive(Debug, Clone)]
 struct GSVValue {
     value: GetSecretValueOutputDef,
-    last_retrieved_at: Instant,
+    last_updated_at: Instant,
 }
 
 impl GSVValue {
     fn new(value: GetSecretValueOutputDef) -> Self {
         Self {
             value,
-            last_retrieved_at: Instant::now(),
+            last_updated_at: Instant::now(),
         }
     }
 }
@@ -68,7 +68,7 @@ impl SecretStore for MemoryStore {
             version_id: version_id.map(String::from),
             version_stage: version_stage.map(String::from),
         }) {
-            Some(gsv) if gsv.last_retrieved_at.elapsed() > self.ttl => {
+            Some(gsv) if gsv.last_updated_at.elapsed() > self.ttl => {
                 Err(SecretStoreError::CacheExpired(Box::new(gsv.value.clone())))
             }
             Some(gsv) => Ok(gsv.clone().value),
