@@ -72,3 +72,6 @@ fabric.properties
 
 # Built Visual Studio Code Extensions
 *.vsix
+
+# Code coverage profiling output files
+**.profraw
