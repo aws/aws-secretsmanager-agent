@@ -11,6 +11,12 @@ updates:
         update-types:
           - minor
           - patch
+      dev-dependencies:
+        applies-to: version-updates
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
