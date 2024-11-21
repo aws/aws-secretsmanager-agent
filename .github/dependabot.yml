@@ -7,10 +7,10 @@ updates:
     groups:
       dependencies:
         applies-to: version-updates
-        dependency-type: "production"
+        dependency-type: production
         update-types:
-          - "minor"
-          - "patch"
+          - minor
+          - patch
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
