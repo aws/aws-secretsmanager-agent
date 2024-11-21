@@ -8,6 +8,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-Cinstrument-coverage"
+  RUSTDOCFLAGS: "-Cinstrument-coverage"
 
 jobs:
   build:
@@ -22,17 +24,15 @@ jobs:
         with:
           toolchain: nightly
           override: true
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
+      - name: Install grcov
+        run: cargo install grcov
       - name: Build
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose --all-features --no-fail-fast
-        env:
-          CARGO_INCREMENTAL: '0'
-          RUSTFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
-          RUSTDOCFLAGS: "-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Cpanic=abort -Zpanic_abort_tests"
       - name: Code Coverage
-        uses: actions-rs/grcov@v0.1
+        run: grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./lcov.info
       - name: Publish Code Coverage
         uses: codecov/codecov-action@v4
         with:
