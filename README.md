@@ -86,6 +86,14 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
 
 To build on Windows, follow the instructions at [Set up your dev environment on Windows for Rust](https://learn.microsoft.com/en-us/windows/dev-environment/rust/setup) in the *Microsoft Windows documentation*\.
 
+1. Build the agent using the cargo build command:
+
+   ```sh
+   cargo build --release
+   ```
+
+   You will find the executable under `target/release/aws_secretsmanager_agent.exe`\.
+
 ------
 #### [ Cross\-compile natively ]
 
