@@ -23,6 +23,7 @@ const DEFAULT_SSRF_ENV_VARIABLES: [&str; 3] = [
 ];
 const DEFAULT_PATH_PREFIX: &str = "/v1/";
 const DEFAULT_IGNORE_TRANSIENT_ERRORS: bool = true;
+const DEFAULT_VALIDATE_CREDENTIALS: bool = true;
 
 const DEFAULT_REGION: Option<String> = None;
 
@@ -41,6 +42,7 @@ struct ConfigFile {
     max_conn: String,
     region: Option<String>,
     ignore_transient_errors: bool,
+    validate_credentials: bool,
 }
 
 /// The log levels supported by the daemon.
@@ -102,6 +104,9 @@ pub struct Config {
 
     /// Whether the agent should serve cached data on transient refresh errors
     ignore_transient_errors: bool,
+
+    /// Whether to validate AWS credentials on startup using STS GetCallerIdentity
+    validate_credentials: bool,
 }
 
 /// The default configuration options.
@@ -144,7 +149,8 @@ impl Config {
             .set_default("path_prefix", DEFAULT_PATH_PREFIX)?
             .set_default("max_conn", DEFAULT_MAX_CONNECTIONS)?
             .set_default("region", DEFAULT_REGION)?
-            .set_default("ignore_transient_errors", DEFAULT_IGNORE_TRANSIENT_ERRORS)?;
+            .set_default("ignore_transient_errors", DEFAULT_IGNORE_TRANSIENT_ERRORS)?
+            .set_default("validate_credentials", DEFAULT_VALIDATE_CREDENTIALS)?;
 
         // Merge the config overrides onto the default configurations, if provided.
         config = match file_path {
@@ -247,6 +253,15 @@ impl Config {
         self.ignore_transient_errors
     }
 
+    /// Whether to validate AWS credentials on startup using STS GetCallerIdentity
+    ///
+    /// # Returns
+    ///
+    /// * `validate_credentials` - Whether to validate credentials on startup. Defaults to true.
+    pub fn validate_credentials(&self) -> bool {
+        self.validate_credentials
+    }
+
     /// Private helper that fills in the Config instance from the specified
     /// config overrides (or defaults).
     ///
@@ -295,6 +310,7 @@ impl Config {
             )?,
             region: config_file.region,
             ignore_transient_errors: config_file.ignore_transient_errors,
+            validate_credentials: config_file.validate_credentials,
         };
 
         // Additional validations.
@@ -378,6 +394,7 @@ mod tests {
             max_conn: String::from(DEFAULT_MAX_CONNECTIONS),
             region: None,
             ignore_transient_errors: DEFAULT_IGNORE_TRANSIENT_ERRORS,
+            validate_credentials: DEFAULT_VALIDATE_CREDENTIALS,
         }
     }
 
@@ -404,6 +421,7 @@ mod tests {
         assert_eq!(config.clone().max_conn(), 800);
         assert_eq!(config.clone().region(), None);
         assert!(config.ignore_transient_errors());
+        assert!(config.validate_credentials());
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -429,6 +447,7 @@ mod tests {
         assert_eq!(config.clone().max_conn(), 10);
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
         assert!(!config.ignore_transient_errors());
+        assert!(!config.validate_credentials());
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.
@@ -619,5 +638,17 @@ mod tests {
             "tests/resources/configs/config_file_with_invalid_contents.toml",
         ))
         .unwrap();
+    }
+
+    /// Tests that validate_credentials defaults to true and can be overridden
+    #[test]
+    fn test_validate_credentials() {
+        // Test default value
+        let config = Config::default();
+        assert!(config.validate_credentials());
+
+        // Test override to false
+        let config = Config::new(Some("tests/resources/configs/config_file_valid.toml")).unwrap();
+        assert!(!config.validate_credentials());
     }
 }
