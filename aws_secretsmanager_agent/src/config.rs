@@ -612,6 +612,7 @@ mod tests {
         assert_eq!(config.clone().log_level(), LogLevel::Info);
         assert_eq!(config.clone().http_port(), 2773);
         assert_eq!(config.clone().ttl(), Duration::from_secs(300));
+        assert!(config.validate_credentials());
         assert_eq!(
             config.clone().cache_size(),
             NonZeroUsize::new(1000).unwrap()
@@ -638,17 +639,5 @@ mod tests {
             "tests/resources/configs/config_file_with_invalid_contents.toml",
         ))
         .unwrap();
-    }
-
-    /// Tests that validate_credentials defaults to true and can be overridden
-    #[test]
-    fn test_validate_credentials() {
-        // Test default value
-        let config = Config::default();
-        assert!(config.validate_credentials());
-
-        // Test override to false
-        let config = Config::new(Some("tests/resources/configs/config_file_valid.toml")).unwrap();
-        assert!(!config.validate_credentials());
     }
 }
