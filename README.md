@@ -235,9 +235,7 @@ The following instructions show how to get a secret named *MyTest* by using the 
 
 **To create a Lambda extension that packages the Secrets Manager Agent**
 
-1. Create a Python Lambda function that reads the SSRF token from environment variable `AWS_TOKEN`, and queries `http://localhost:2773/secretsmanager/get?secretId=MyTest` to get the secret. Be sure to specify environment variable `AWS_TOKEN` for your lambda, and additionally, implement retry logic in your application code to accommodate delays in initialization and registration of the Lambda extension\.
-
-1. From the root of the Secrets Manager Agent code package, run the following commands to test the Lambda extension\.
+1. Package the agent as a layer. From the root of the Secrets Manager Agent code package, run the following example commands\:
 
    ```sh
    AWS_ACCOUNT_ID=<AWS_ACCOUNT_ID>
@@ -250,7 +248,7 @@ The following instructions show how to get a secret named *MyTest* by using the 
    mkdir -p ./bin
    cp ./target/x86_64-unknown-linux-gnu/release/aws_secretsmanager_agent ./bin/secrets-manager-agent
    
-   # Copy the `secrets-manager-agent-extension.sh` script into the `extensions` folder.
+   # Copy the `secrets-manager-agent-extension.sh` example script into the `extensions` folder.
    mkdir -p ./extensions
    cp aws_secretsmanager_agent/examples/example-lambda-extension/secrets-manager-agent-extension.sh ./extensions
    
@@ -261,14 +259,22 @@ The following instructions show how to get a secret named *MyTest* by using the 
    LAYER_VERSION_ARN=$(aws lambda publish-layer-version \
        --layer-name secrets-manager-agent-extension \
        --zip-file "fileb://secrets-manager-agent-extension.zip" | jq -r '.LayerVersionArn')
-   
+   ```
+
+2. The default configuration of the agent will automatically set the SSRF token to the value set in the pre-set `AWS_SESSION_TOKEN` or `AWS_CONTAINER_AUTHORIZATION_TOKEN` environment variables (the latter variable for Java-based Lambda functions with SnapStart enabled). Alternatively, you can define the `AWS_TOKEN` environment variable with an arbitrary value for your Lambda function instead as this variable takes precedence over the other two. If you choose to use the `AWS_TOKEN` environment variable, you must set that environment variable with a `lambda:UpdateFunctionConfiguration` call\.
+
+
+3. Attach the layer version  to your Lambda function:
+   ```sh
    # Attach the layer version to the Lambda function
    aws lambda update-function-configuration \
        --function-name $LAMBDA_ARN \
        --layers "$LAYER_VERSION_ARN"
    ```
+4. Update your Lambda function to query `http://localhost:2773/secretsmanager/get?secretId=MyTest` with the `X-Aws-Parameters-Secrets-Token` header value set to the value of the SSRF token sourced from one the environment variables mentioned above to retrieve the secret. Be sure to implement retry logic in your application code to accommodate delays in initialization and registration of the Lambda extension\.
 
-1. Invoke the Lambda function to verify that the secret is being correctly fetched\. 
+
+5. Invoke the Lambda function to verify that the secret is being correctly fetched\. 
 
 ------
 
@@ -353,7 +359,7 @@ The following list shows the options you can configure for the Secrets Manager A
 + **ttl\_seconds** – The TTL in seconds for the cached items, in the range 1 to 3600\. The default is 300\. This setting is not used if the cache size is 0\. 
 + **cache\_size** – The maximum number of secrets that can be stored in the cache, in the range 0 to 1000\. 0 indicates that there is no caching\. The default is 1000\. 
 + **ssrf\_headers** – A list of header names the Secrets Manager Agent checks for the SSRF token\. The default is "X\-Aws\-Parameters\-Secrets\-Token, X\-Vault\-Token"\. 
-+ **ssrf\_env\_variables** – A list of environment variable names the Secrets Manager Agent checks for the SSRF token\. The environment variable can contain the token or a reference to the token file as in: `AWS_TOKEN=file:///var/run/awssmatoken`\. The default is "AWS\_TOKEN, AWS\_SESSION\_TOKEN"\.
++ **ssrf\_env\_variables** – A list of environment variable names the Secrets Manager Agent checks in sequential order for the SSRF token\. The environment variable can contain the token or a reference to the token file as in: `AWS_TOKEN=file:///var/run/awssmatoken`\. The default is "AWS\_TOKEN, AWS\_SESSION\_TOKEN, AWS\_CONTAINER\_AUTHORIZATION\_TOKEN\".
 + **path\_prefix** – The URI prefix used to determine if the request is a path based request\. The default is "/v1/"\.
 + **max\_conn** – The maximum number of connections from HTTP clients that the Secrets Manager Agent allows, in the range 1 to 1000\. The default is 800\.
 
