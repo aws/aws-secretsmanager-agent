@@ -356,8 +356,8 @@ The following list shows the options you can configure for the Secrets Manager A
 + **log\_level** – The level of detail reported in logs for the Secrets Manager Agent: DEBUG, INFO, WARN, ERROR, or NONE\. The default is INFO\.
 + **http\_port** – The port for the local HTTP server, in the range 1024 to 65535\. The default is 2773\.
 + **region** – The AWS Region to use for requests\. If no Region is specified, the Secrets Manager Agent determines the Region from the SDK\. For more information, see [Specify your credentials and default Region](https://docs.aws.amazon.com/sdk-for-rust/latest/dg/credentials.html) in the *AWS SDK for Rust Developer Guide*\.
-+ **ttl\_seconds** – The TTL in seconds for the cached items, in the range 1 to 3600\. The default is 300\. This setting is not used if the cache size is 0\. 
-+ **cache\_size** – The maximum number of secrets that can be stored in the cache, in the range 0 to 1000\. 0 indicates that there is no caching\. The default is 1000\. 
++ **ttl\_seconds** – The TTL in seconds for the cached items, in the range 0 to 3600\. The default is 300\. 0 indicates that there is no caching\.
++ **cache\_size** – The maximum number of secrets that can be stored in the cache, in the range 1 to 1000\. The default is 1000\. 
 + **ssrf\_headers** – A list of header names the Secrets Manager Agent checks for the SSRF token\. The default is "X\-Aws\-Parameters\-Secrets\-Token, X\-Vault\-Token"\. 
 + **ssrf\_env\_variables** – A list of environment variable names the Secrets Manager Agent checks in sequential order for the SSRF token\. The environment variable can contain the token or a reference to the token file as in: `AWS_TOKEN=file:///var/run/awssmatoken`\. The default is "AWS\_TOKEN, AWS\_SESSION\_TOKEN, AWS\_CONTAINER\_AUTHORIZATION\_TOKEN\".
 + **path\_prefix** – The URI prefix used to determine if the request is a path based request\. The default is "/v1/"\.
