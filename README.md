@@ -392,7 +392,7 @@ The following curl example shows how force Secrets Manager Agent to refresh the 
 
 ```bash
 curl -v -H \
-"X-Aws-Parameters-Secrets-Token: $(<var/run/awssmatoken)" \
+"X-Aws-Parameters-Secrets-Token: $(</var/run/awssmatoken)" \
 'http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>&refreshNow=true' \
 echo
 ```
