@@ -690,18 +690,27 @@ mod tests {
     #[tokio::test]
     async fn refresh_now_test() {
         let responses = run_requests_with_client(
-            vec![("GET", "/secretsmanager/get?secretId=REFRESHNOWtestsecret"), 
-                 ("GET", "/secretsmanager/get?secretId=REFRESHNOWtestsecret"),
-                 ("GET", "/secretsmanager/get?secretId=REFRESHNOWtestsecret&refreshNow=true")], 
-            vec![("X-Aws-Parameters-Secrets-Token", "xyzzy")], None).await.unwrap();
-        
+            vec![
+                ("GET", "/secretsmanager/get?secretId=REFRESHNOWtestsecret"),
+                ("GET", "/secretsmanager/get?secretId=REFRESHNOWtestsecret"),
+                (
+                    "GET",
+                    "/secretsmanager/get?secretId=REFRESHNOWtestsecret&refreshNow=true",
+                ),
+            ],
+            vec![("X-Aws-Parameters-Secrets-Token", "xyzzy")],
+            None,
+        )
+        .await
+        .unwrap();
+
         let mut secret_strings = Vec::new();
         for (status, body) in responses {
             assert_eq!(status, StatusCode::OK);
-            
+
             let map: serde_json::Map<String, Value> = serde_json::from_slice(&body).unwrap();
             let secret_string = map.get("SecretString").unwrap().to_string();
-                
+
             secret_strings.insert(0, secret_string)
         }
 

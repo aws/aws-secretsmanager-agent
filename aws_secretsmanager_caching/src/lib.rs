@@ -167,7 +167,7 @@ impl SecretsManagerCachingClient {
             return Ok(self
                 .refresh_secret_value(secret_id, version_id, version_stage, None)
                 .await?);
-        } 
+        }
 
         let read_lock = self.store.read().await;
 
@@ -585,7 +585,11 @@ mod tests {
             .await
             .unwrap();
 
-        if (client.get_secret_value(secret_id, version_id, None, false).await).is_ok() {
+        if (client
+            .get_secret_value(secret_id, version_id, None, false)
+            .await)
+            .is_ok()
+        {
             panic!("Expected failure")
         }
     }
@@ -719,14 +723,8 @@ mod tests {
             .unwrap();
 
         assert_ne!(response1.secret_string, response2.secret_string);
-        assert_eq!(
-            response1.arn,
-            response2.arn
-        );
-        assert_eq!(
-            response1.version_stages,
-            response2.version_stages
-        );
+        assert_eq!(response1.arn, response2.arn);
+        assert_eq!(response1.version_stages, response2.version_stages);
     }
 
     #[tokio::test]
@@ -783,26 +781,20 @@ mod tests {
             .unwrap();
 
         assert_ne!(response1.secret_string, response2.secret_string);
-        assert_eq!(
-            response1.arn,
-            response2.arn
-        );
-        assert_eq!(
-            response1.version_stages,
-            response2.version_stages
-        );
+        assert_eq!(response1.arn, response2.arn);
+        assert_eq!(response1.version_stages, response2.version_stages);
     }
 
     mod asm_mock {
         use aws_sdk_secretsmanager as secretsmanager;
         use aws_smithy_runtime::client::http::test_util::infallible_client_fn;
         use aws_smithy_runtime_api::client::http::SharedHttpClient;
-        use std::time::{Duration, SystemTime, UNIX_EPOCH};
         use aws_smithy_types::body::SdkBody;
         use aws_smithy_types::timeout::TimeoutConfig;
         use http::{Request, Response};
         use secretsmanager::config::BehaviorVersion;
         use serde_json::Value;
+        use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
         pub const FAKE_ARN: &str =
             "arn:aws:secretsmanager:us-west-2:123456789012:secret:{{name}}-NhBWsc";
@@ -875,8 +867,11 @@ mod tests {
             let name = req_map.get("SecretId").unwrap().as_str().unwrap(); // Does not handle full ARN case.
 
             let secret_string = match name {
-                secret if secret.starts_with("REFRESHNOW") => 
-                    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis().to_string(),
+                secret if secret.starts_with("REFRESHNOW") => SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+                    .to_string(),
                 _ => DEFAULT_SECRET_STRING.to_string(),
             };
 

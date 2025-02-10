@@ -104,9 +104,11 @@ mod tests {
     #[test]
     fn parse_query_refresh() {
         let secret_id = "MyTest".to_owned();
-        let query =
-            GSVQuery::try_from_query(&format!("/secretsmanager/get?secretId={}&refreshNow={}", secret_id, true))
-                .unwrap();
+        let query = GSVQuery::try_from_query(&format!(
+            "/secretsmanager/get?secretId={}&refreshNow={}",
+            secret_id, true
+        ))
+        .unwrap();
 
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
@@ -117,9 +119,11 @@ mod tests {
     #[test]
     fn parse_query_refresh_false() {
         let secret_id = "MyTest".to_owned();
-        let query =
-            GSVQuery::try_from_query(&format!("/secretsmanager/get?secretId={}&refreshNow={}", secret_id, "0"))
-                .unwrap();
+        let query = GSVQuery::try_from_query(&format!(
+            "/secretsmanager/get?secretId={}&refreshNow={}",
+            secret_id, "0"
+        ))
+        .unwrap();
 
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
@@ -147,9 +151,11 @@ mod tests {
     #[test]
     fn parse_refresh_case_insensitive() {
         let secret_id = "MyTest".to_owned();
-        let query =
-            GSVQuery::try_from_query(&format!("/secretsmanager/get?secretId={}&refreshNow={}", secret_id, "FALSE"))
-                .unwrap();
+        let query = GSVQuery::try_from_query(&format!(
+            "/secretsmanager/get?secretId={}&refreshNow={}",
+            secret_id, "FALSE"
+        ))
+        .unwrap();
 
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);

@@ -66,10 +66,14 @@ impl CacheManager {
         secret_id: &str,
         version: Option<&str>,
         label: Option<&str>,
-        refresh_now: bool
+        refresh_now: bool,
     ) -> Result<String, HttpError> {
         // Read the secret from the cache or fetch it over the network.
-        let found = match self.0.get_secret_value(secret_id, version, label, refresh_now).await {
+        let found = match self
+            .0
+            .get_secret_value(secret_id, version, label, refresh_now)
+            .await
+        {
             Ok(value) => value,
             Err(e) if e.is::<SdkError<GetSecretValueError, HttpResponse>>() => {
                 let (code, msg, status) = svc_err::<GetSecretValueError>(e)?;
@@ -156,10 +160,10 @@ pub mod tests {
     use aws_sdk_secretsmanager as secretsmanager;
     use aws_smithy_runtime::client::http::test_util::{infallible_client_fn, NeverClient};
     use aws_smithy_types::body::SdkBody;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
     use http::{Request, Response};
     use serde_json::Value;
     use std::thread::sleep;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use std::cell::RefCell;
     use std::thread_local;
@@ -252,8 +256,11 @@ pub mod tests {
         let name = req_map.get("SecretId").unwrap().as_str().unwrap(); // Does not handle full ARN case.
 
         let secret_string = match name {
-            secret if secret.starts_with("REFRESHNOW") => 
-                SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis().to_string(),
+            secret if secret.starts_with("REFRESHNOW") => SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                .to_string(),
             _ => DEFAULT_SECRET_STRING.to_string(),
         };
 
