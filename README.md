@@ -345,7 +345,95 @@ def get_secret():
         # Handle network errors
         raise Exception(f"Error: {e}")
 ```
+------
 
+**Force-refresh secrets with `RefreshNow`**
+
+Learn how to use the refreshNow parameter to force the Secrets Manager Agent (SMA) to refresh secret values.
+
+Secrets Manager Agent uses an in-memory cache to store secret values, which it refreshes periodically. By default, this refresh occurs when you request a secret after the Time to Live (TTL) has expired, typically every 300 seconds. However, this approach can sometimes result in stale secret values, especially if a secret rotates before the cache entry expires.
+
+To address this limitation, Secrets Manager Agent supports a parameter called `refreshNow` in the URL. You can use this parameter to force an immediate refresh of a secret's value, bypassing the cache and ensuring you have the most up-to-date information.
+
+Default behavior (without `refreshNow`):
+- Uses cached values until TTL expires
+- Refreshes secrets only after TTL (default 300 seconds)
+- May return stale values if secrets rotate before the cache expires
+
+Behavior with `refreshNow=true`:
+- Bypasses the cache entirely
+- Retrieves the latest secret value directly from Secrets Manager
+- Updates the cache with the fresh value and resets the TTL
+- Ensures you always get the most current secret value
+
+By using the `refreshNow` parameter, you can ensure that you're always working with the most current secret values, even in scenarios where frequent secret rotation is necessary.
+
+## `refreshNow` parameter behavior
+
+`refreshNow` set to `true`:
+- If Secrets Manager Agent can't retrieve the secret from Secrets Manager, it returns an error and does not update the cache.
+
+`refreshNow` set to `false` or not specified:
+- Secrets Manager Agent follows its default behavior:
+  - If the cached value is fresher than the TTL, Secrets Manager Agent returns the cached value.
+  - If the cached value is older than the TTL, Secrets Manager Agent makes a call to Secrets Manager.
+
+## Using the refreshNow parameter
+
+To use the `refreshNow` parameter, include it in the URL for the Secrets Manager Agent GET request.
+
+### Example - Secrets Manager Agent GET request with refreshNow parameter
+
+> **Important**: The default value of `refreshNow` is `false`. When set to `true`, it overrides the TTL specified in the Secrets Manager Agent configuration file and makes an API call to Secrets Manager.
+
+#### [ curl ]
+
+The following curl example shows how force Secrets Manager Agent to refresh the secret. The example relies on the SSRF being present in a file, which is where it is stored by the install script.
+
+```bash
+curl -v -H \
+"X-Aws-Parameters-Secrets-Token: $(</var/run/awssmatoken)" \
+'http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>&refreshNow=true' \
+echo
+```
+
+#### [ Python ]
+
+The following Python example shows how to get a secret from the Secrets Manager Agent. The example relies on the SSRF being present in a file, which is where it is stored by the install script.
+
+```python
+import requests
+import json
+
+# Function that fetches the secret from Secrets Manager Agent for the provided secret id. 
+def get_secret():
+    # Construct the URL for the GET request
+    url = f"http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>&refreshNow=true"
+
+    # Get the SSRF token from the token file
+    with open('/var/run/awssmatoken') as fp:
+        token = fp.read() 
+
+    headers = {
+        "X-Aws-Parameters-Secrets-Token": token.strip()
+    }
+
+    try:
+        # Send the GET request with headers
+        response = requests.get(url, headers=headers)
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Return the secret value
+            return response.text
+        else:
+            # Handle error cases
+            raise Exception(f"Status code {response.status_code} - {response.text}")
+
+    except Exception as e:
+        # Handle network errors
+        raise Exception(f"Error: {e}")
+```
 ------
 
 ## Configure the Secrets Manager Agent<a name="secrets-manager-agent-config"></a>
