@@ -155,12 +155,20 @@ impl SecretsManagerCachingClient {
     /// * `secret_id` - The ARN or name of the secret to retrieve.
     /// * `version_id` - The version id of the secret version to retrieve.
     /// * `version_stage` - The staging label of the version of the secret to retrieve.
+    /// * `refresh_now` - Whether to serve from the cache or fetch from ASM.
     pub async fn get_secret_value(
         &self,
         secret_id: &str,
         version_id: Option<&str>,
         version_stage: Option<&str>,
+        refresh_now: bool,
     ) -> Result<GetSecretValueOutputDef, Box<dyn Error>> {
+        if refresh_now {
+            return Ok(self
+                .refresh_secret_value(secret_id, version_id, version_stage, None)
+                .await?);
+        } 
+
         let read_lock = self.store.read().await;
 
         match read_lock.get_secret_value(secret_id, version_id, version_stage) {
@@ -335,7 +343,7 @@ mod tests {
         let secret_id = "test_secret";
 
         let response = client
-            .get_secret_value(secret_id, None, None)
+            .get_secret_value(secret_id, None, None, false)
             .await
             .unwrap();
 
@@ -362,7 +370,7 @@ mod tests {
         let version_id = "test_version";
 
         let response = client
-            .get_secret_value(secret_id, Some(version_id), None)
+            .get_secret_value(secret_id, Some(version_id), None, false)
             .await
             .unwrap();
 
@@ -390,7 +398,7 @@ mod tests {
         let stage_label = "STAGEHERE";
 
         let response = client
-            .get_secret_value(secret_id, None, Some(stage_label))
+            .get_secret_value(secret_id, None, Some(stage_label), false)
             .await
             .unwrap();
 
@@ -415,7 +423,7 @@ mod tests {
         let stage_label = "STAGEHERE";
 
         let response = client
-            .get_secret_value(secret_id, Some(version_id), Some(stage_label))
+            .get_secret_value(secret_id, Some(version_id), Some(stage_label), false)
             .await
             .unwrap();
 
@@ -441,7 +449,7 @@ mod tests {
         // Run through this twice to test the cache expiration
         for i in 0..2 {
             let response = client
-                .get_secret_value(secret_id, None, None)
+                .get_secret_value(secret_id, None, None, false)
                 .await
                 .unwrap();
 
@@ -473,7 +481,7 @@ mod tests {
         let secret_id = "KMSACCESSDENIEDabcdef";
 
         client
-            .get_secret_value(secret_id, None, None)
+            .get_secret_value(secret_id, None, None, false)
             .await
             .unwrap();
     }
@@ -485,7 +493,7 @@ mod tests {
         let secret_id = "NOTFOUNDfasefasef";
 
         client
-            .get_secret_value(secret_id, None, None)
+            .get_secret_value(secret_id, None, None, false)
             .await
             .unwrap();
     }
@@ -496,12 +504,12 @@ mod tests {
         let secret_id = "test_secret";
 
         let res1 = client
-            .get_secret_value(secret_id, None, None)
+            .get_secret_value(secret_id, None, None, false)
             .await
             .unwrap();
 
         let res2 = client
-            .get_secret_value(secret_id, None, None)
+            .get_secret_value(secret_id, None, None, false)
             .await
             .unwrap();
 
@@ -515,12 +523,12 @@ mod tests {
         let version_id = Some("test_version");
 
         let res1 = client
-            .get_secret_value(secret_id, version_id, None)
+            .get_secret_value(secret_id, version_id, None, false)
             .await
             .unwrap();
 
         let res2 = client
-            .get_secret_value(secret_id, version_id, None)
+            .get_secret_value(secret_id, version_id, None, false)
             .await
             .unwrap();
 
@@ -534,12 +542,12 @@ mod tests {
         let version_stage = Some("VERSIONSTAGE");
 
         let res1 = client
-            .get_secret_value(secret_id, None, version_stage)
+            .get_secret_value(secret_id, None, version_stage, false)
             .await
             .unwrap();
 
         let res2 = client
-            .get_secret_value(secret_id, None, version_stage)
+            .get_secret_value(secret_id, None, version_stage, false)
             .await
             .unwrap();
 
@@ -554,12 +562,12 @@ mod tests {
         let version_stage = Some("VERSIONSTAGE");
 
         let res1 = client
-            .get_secret_value(secret_id, version_id, version_stage)
+            .get_secret_value(secret_id, version_id, version_stage, false)
             .await
             .unwrap();
 
         let res2 = client
-            .get_secret_value(secret_id, version_id, version_stage)
+            .get_secret_value(secret_id, version_id, version_stage, false)
             .await
             .unwrap();
 
@@ -573,11 +581,11 @@ mod tests {
         let version_id = Some("test_version");
 
         client
-            .get_secret_value(secret_id, version_id, None)
+            .get_secret_value(secret_id, version_id, None, false)
             .await
             .unwrap();
 
-        if (client.get_secret_value(secret_id, version_id, None).await).is_ok() {
+        if (client.get_secret_value(secret_id, version_id, None, false).await).is_ok() {
             panic!("Expected failure")
         }
     }
@@ -602,12 +610,12 @@ mod tests {
         let version_id = Some("test_version");
 
         let res1 = client
-            .get_secret_value(secret_id, version_id, None)
+            .get_secret_value(secret_id, version_id, None, false)
             .await
             .unwrap();
 
         let res2 = client
-            .get_secret_value(secret_id, version_id, None)
+            .get_secret_value(secret_id, version_id, None, false)
             .await
             .unwrap();
 
@@ -624,12 +632,12 @@ mod tests {
         let version_stage = Some("VERSIONSTAGE");
 
         let res1 = client
-            .get_secret_value(secret_id, version_id, version_stage)
+            .get_secret_value(secret_id, version_id, version_stage, false)
             .await
             .unwrap();
 
         let res2 = client
-            .get_secret_value(secret_id, version_id, version_stage)
+            .get_secret_value(secret_id, version_id, version_stage, false)
             .await
             .unwrap();
 
@@ -665,12 +673,12 @@ mod tests {
         let secret_id = "GSVTIMEOUT_test_secret";
 
         let res1 = client
-            .get_secret_value(secret_id, None, None)
+            .get_secret_value(secret_id, None, None, false)
             .await
             .unwrap();
 
         let res2 = client
-            .get_secret_value(secret_id, None, None)
+            .get_secret_value(secret_id, None, None, false)
             .await
             .unwrap();
 
@@ -679,28 +687,135 @@ mod tests {
         assert_eq!(res1, res2)
     }
 
+    #[tokio::test]
+    async fn test_get_secret_value_refresh_now_true() {
+        let client = fake_client(Some(Duration::from_secs(30)), false, None, None);
+        let secret_id = "REFRESHNOW_test_secret";
+
+        let response1 = client
+            .get_secret_value(secret_id, None, None, false)
+            .await
+            .unwrap();
+
+        assert_eq!(response1.name, Some(secret_id.to_string()));
+        assert_eq!(
+            response1.arn,
+            Some(
+                asm_mock::FAKE_ARN
+                    .replace("{{name}}", secret_id)
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            response1.version_stages,
+            Some(vec!["AWSCURRENT".to_string()])
+        );
+
+        sleep(Duration::from_millis(1)).await;
+
+        let response2 = client
+            .get_secret_value(secret_id, None, None, true)
+            .await
+            .unwrap();
+
+        assert_ne!(response1.secret_string, response2.secret_string);
+        assert_eq!(
+            response1.arn,
+            response2.arn
+        );
+        assert_eq!(
+            response1.version_stages,
+            response2.version_stages
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_secret_value_refresh_now_false() {
+        let client = fake_client(Some(Duration::from_secs(30)), false, None, None);
+        let secret_id = "REFRESHNOW_test_secret";
+
+        let response1 = client
+            .get_secret_value(secret_id, None, None, false)
+            .await
+            .unwrap();
+
+        assert_eq!(response1.name, Some(secret_id.to_string()));
+        assert_eq!(
+            response1.arn,
+            Some(
+                asm_mock::FAKE_ARN
+                    .replace("{{name}}", secret_id)
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            response1.version_stages,
+            Some(vec!["AWSCURRENT".to_string()])
+        );
+
+        sleep(Duration::from_millis(1)).await;
+
+        let response2 = client
+            .get_secret_value(secret_id, None, None, false)
+            .await
+            .unwrap();
+
+        assert_eq!(response1, response2);
+    }
+
+    #[tokio::test]
+    async fn test_get_secret_value_version_id_and_stage_refresh_now() {
+        let client = fake_client(Some(Duration::from_secs(30)), false, None, None);
+        let secret_id = "REFRESHNOW_test_secret";
+        let version_id = "test_version";
+        let stage_label = "STAGEHERE";
+
+        let response1 = client
+            .get_secret_value(secret_id, Some(version_id), Some(stage_label), false)
+            .await
+            .unwrap();
+
+        sleep(Duration::from_millis(1)).await;
+
+        let response2 = client
+            .get_secret_value(secret_id, Some(version_id), Some(stage_label), true)
+            .await
+            .unwrap();
+
+        assert_ne!(response1.secret_string, response2.secret_string);
+        assert_eq!(
+            response1.arn,
+            response2.arn
+        );
+        assert_eq!(
+            response1.version_stages,
+            response2.version_stages
+        );
+    }
+
     mod asm_mock {
         use aws_sdk_secretsmanager as secretsmanager;
         use aws_smithy_runtime::client::http::test_util::infallible_client_fn;
         use aws_smithy_runtime_api::client::http::SharedHttpClient;
+        use std::time::{Duration, SystemTime, UNIX_EPOCH};
         use aws_smithy_types::body::SdkBody;
         use aws_smithy_types::timeout::TimeoutConfig;
         use http::{Request, Response};
         use secretsmanager::config::BehaviorVersion;
         use serde_json::Value;
-        use std::time::Duration;
 
         pub const FAKE_ARN: &str =
             "arn:aws:secretsmanager:us-west-2:123456789012:secret:{{name}}-NhBWsc";
         pub const DEFAULT_VERSION: &str = "5767290c-d089-49ed-b97c-17086f8c9d79";
         pub const DEFAULT_LABEL: &str = "AWSCURRENT";
+        pub const DEFAULT_SECRET_STRING: &str = "hunter2";
 
         // Template GetSecretValue responses for testing
         pub const GSV_BODY: &str = r###"{
         "ARN": "{{arn}}",
         "Name": "{{name}}",
         "VersionId": "{{version}}",
-        "SecretString": "hunter2",
+        "SecretString": "{{secret}}",
         "VersionStages": [
             "{{label}}"
         ],
@@ -759,6 +874,12 @@ mod tests {
                 .map_or(DEFAULT_LABEL, |x| x.as_str().unwrap());
             let name = req_map.get("SecretId").unwrap().as_str().unwrap(); // Does not handle full ARN case.
 
+            let secret_string = match name {
+                secret if secret.starts_with("REFRESHNOW") => 
+                    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis().to_string(),
+                _ => DEFAULT_SECRET_STRING.to_string(),
+            };
+
             let (code, template) = match parts.headers["x-amz-target"].to_str().unwrap() {
                 "secretsmanager.GetSecretValue" if name.starts_with("KMSACCESSDENIED") => {
                     (400, KMS_ACCESS_DENIED_BODY)
@@ -782,6 +903,7 @@ mod tests {
                 .replace("{{arn}}", FAKE_ARN)
                 .replace("{{name}}", name)
                 .replace("{{version}}", version)
+                .replace("{{secret}}", &secret_string)
                 .replace("{{label}}", label);
             (code, rsp)
         }
