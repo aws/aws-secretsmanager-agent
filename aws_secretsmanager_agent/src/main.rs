@@ -428,7 +428,9 @@ mod tests {
         assert_eq!(map.get("Name").unwrap(), name);
         assert_eq!(map.get("ARN").unwrap(), &fake_arn);
         assert_eq!(map.get("VersionId").unwrap(), version);
-        assert_eq!(map.get("SecretString").unwrap(), "hunter2");
+        if !name.contains("REFRESHNOW") {
+            assert_eq!(map.get("SecretString").unwrap(), "hunter2");
+        }
         assert_eq!(map.get("CreatedDate").unwrap(), "1569534789.046");
         assert_eq!(
             map.get("VersionStages").unwrap().as_array().unwrap(),
@@ -622,6 +624,14 @@ mod tests {
         validate_response("MyTest", body);
     }
 
+    // Verify a query using the refreshNow parameter
+    #[tokio::test]
+    async fn basic_refresh_success() {
+        let (status, body) = run_request("/secretsmanager/get?secretId=MyTest&refreshNow=1").await;
+        assert_eq!(status, StatusCode::OK);
+        validate_response("MyTest", body);
+    }
+
     // Verify a query using the pending label
     #[tokio::test]
     async fn pending_success() {
@@ -646,7 +656,7 @@ mod tests {
     async fn all_args_success() {
         let ver = "000000000000";
         let req =
-            format!("/secretsmanager/get?secretId=MyTest&versionStage=AWSPENDING&versionId={ver}");
+            format!("/secretsmanager/get?secretId=MyTest&versionStage=AWSPENDING&versionId={ver}&refreshNow=true");
         let (status, body) = run_request(&req).await;
         assert_eq!(status, StatusCode::OK);
         validate_response_extra("MyTest", ver, vec!["AWSPENDING"], body);
@@ -676,6 +686,38 @@ mod tests {
         );
     }
 
+    // Verify refreshNow behavior
+    #[tokio::test]
+    async fn refresh_now_test() {
+        let responses = run_requests_with_client(
+            vec![
+                ("GET", "/secretsmanager/get?secretId=REFRESHNOWtestsecret"),
+                ("GET", "/secretsmanager/get?secretId=REFRESHNOWtestsecret"),
+                (
+                    "GET",
+                    "/secretsmanager/get?secretId=REFRESHNOWtestsecret&refreshNow=true",
+                ),
+            ],
+            vec![("X-Aws-Parameters-Secrets-Token", "xyzzy")],
+            None,
+        )
+        .await
+        .unwrap();
+
+        let mut secret_strings = Vec::new();
+        for (status, body) in responses {
+            assert_eq!(status, StatusCode::OK);
+
+            let map: serde_json::Map<String, Value> = serde_json::from_slice(&body).unwrap();
+            let secret_string = map.get("SecretString").unwrap().to_string();
+
+            secret_strings.insert(0, secret_string)
+        }
+
+        assert_ne!(secret_strings[1], secret_strings[2]);
+        assert_eq!(secret_strings[0], secret_strings[1]);
+    }
+
     // Verify a basic path based request with an alternate header succeeds
     #[tokio::test]
     async fn path_success() {
@@ -700,6 +742,15 @@ mod tests {
         validate_response_extra("My/Test", DEFAULT_VERSION, vec!["AWSPENDING"], body);
     }
 
+    // Verify a query using the refreshNow parameter
+    #[tokio::test]
+    async fn path_refresh_success() {
+        let req = "/v1/My/Test?versionStage=AWSPENDING&refreshNow=0";
+        let (status, body) = run_request(&req).await;
+        assert_eq!(status, StatusCode::OK);
+        validate_response_extra("My/Test", DEFAULT_VERSION, vec!["AWSPENDING"], body);
+    }
+
     // Verify a query for a specific version.
     #[tokio::test]
     async fn path_version_success() {
@@ -714,7 +765,7 @@ mod tests {
     #[tokio::test]
     async fn path_all_args_success() {
         let ver = "000000000000";
-        let req = format!("/v1/My/Test?versionStage=AWSPENDING&versionId={ver}");
+        let req = format!("/v1/My/Test?versionStage=AWSPENDING&versionId={ver}&refreshNow=true");
         let (status, body) = run_request(&req).await;
         assert_eq!(status, StatusCode::OK);
         validate_response_extra("My/Test", ver, vec!["AWSPENDING"], body);

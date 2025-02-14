@@ -151,6 +151,7 @@ impl Server {
                         &qry.secret_id,
                         qry.version_id.as_deref(),
                         qry.version_stage.as_deref(),
+                        qry.refresh_now,
                     )
                     .await?)
             }
@@ -164,6 +165,7 @@ impl Server {
                         &qry.secret_id,
                         qry.version_id.as_deref(),
                         qry.version_stage.as_deref(),
+                        qry.refresh_now,
                     )
                     .await?)
             }

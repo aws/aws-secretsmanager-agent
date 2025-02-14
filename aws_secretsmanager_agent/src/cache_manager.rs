@@ -44,6 +44,7 @@ impl CacheManager {
     /// * `name` - The name of the secret to fetch.
     /// * `version` - The version of the secret to fetch.
     /// * `label` - The label of the secret to fetch.
+    /// * `refresh_now` - Whether to serve from the cache or fetch from ASM.
     ///
     /// # Returns
     ///
@@ -65,9 +66,14 @@ impl CacheManager {
         secret_id: &str,
         version: Option<&str>,
         label: Option<&str>,
+        refresh_now: bool,
     ) -> Result<String, HttpError> {
         // Read the secret from the cache or fetch it over the network.
-        let found = match self.0.get_secret_value(secret_id, version, label).await {
+        let found = match self
+            .0
+            .get_secret_value(secret_id, version, label, refresh_now)
+            .await
+        {
             Ok(value) => value,
             Err(e) if e.is::<SdkError<GetSecretValueError, HttpResponse>>() => {
                 let (code, msg, status) = svc_err::<GetSecretValueError>(e)?;
@@ -154,10 +160,10 @@ pub mod tests {
     use aws_sdk_secretsmanager as secretsmanager;
     use aws_smithy_runtime::client::http::test_util::{infallible_client_fn, NeverClient};
     use aws_smithy_types::body::SdkBody;
-    use core::time::Duration;
     use http::{Request, Response};
     use serde_json::Value;
     use std::thread::sleep;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use std::cell::RefCell;
     use std::thread_local;
@@ -166,13 +172,14 @@ pub mod tests {
         "arn:aws:secretsmanager:us-west-2:123456789012:secret:{{name}}-NhBWsc";
     pub const DEFAULT_VERSION: &str = "5767290c-d089-49ed-b97c-17086f8c9d79";
     pub const DEFAULT_LABEL: &str = "AWSCURRENT";
+    pub const DEFAULT_SECRET_STRING: &str = "hunter2";
 
     // Template GetSecretValue responses for testing
     const GSV_BODY: &str = r###"{
         "ARN": "{{arn}}",
         "Name": "{{name}}",
         "VersionId": "{{version}}",
-        "SecretString": "hunter2",
+        "SecretString": "{{secret}}",
         "VersionStages": [
             "{{label}}"
         ],
@@ -248,6 +255,15 @@ pub mod tests {
             .map_or(DEFAULT_LABEL, |x| x.as_str().unwrap());
         let name = req_map.get("SecretId").unwrap().as_str().unwrap(); // Does not handle full ARN case.
 
+        let secret_string = match name {
+            secret if secret.starts_with("REFRESHNOW") => SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis()
+                .to_string(),
+            _ => DEFAULT_SECRET_STRING.to_string(),
+        };
+
         let (code, template) = match parts.headers["x-amz-target"].to_str().unwrap() {
             "secretsmanager.GetSecretValue" if name.starts_with("KMSACCESSDENIED") => {
                 (400, KMS_ACCESS_DENIED_BODY)
@@ -276,6 +292,7 @@ pub mod tests {
             .replace("{{arn}}", FAKE_ARN)
             .replace("{{name}}", name)
             .replace("{{version}}", version)
+            .replace("{{secret}}", &secret_string)
             .replace("{{label}}", label);
         (code, rsp)
     }
