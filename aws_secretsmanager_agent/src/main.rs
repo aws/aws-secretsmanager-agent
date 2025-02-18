@@ -167,7 +167,7 @@ async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
     }
 
     // Bind the listener to the specified port
-    let addr: SocketAddr = ([127, 0, 0, 1], config.http_port()).into();
+    let addr: SocketAddr = (config.http_address(), config.http_port()).into();
     let listener: TcpListener = match TcpListener::bind(addr).await {
         Ok(x) => x,
         Err(err) => {
