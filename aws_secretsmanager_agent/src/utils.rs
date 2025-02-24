@@ -128,20 +128,23 @@ pub async fn validate_and_create_asm_client(
     let default_config = &aws_config::load_defaults(BehaviorVersion::latest()).await;
     let mut asm_builder = aws_sdk_secretsmanager::config::Builder::from(default_config)
         .interceptor(AgentModifierInterceptor);
-    let mut sts_builder = aws_sdk_sts::config::Builder::from(default_config);
 
     if let Some(region) = config.region() {
         asm_builder.set_region(Some(Region::new(region.clone())));
-        sts_builder.set_region(Some(Region::new(region.clone())));
     }
 
-    // Validate the region and credentials first
-    let sts_client = aws_sdk_sts::Client::from_conf(sts_builder.build());
-    match sts_client.get_caller_identity().send().await {
-        Ok(_) => (),
-        Err(e) if config.ignore_transient_errors() && is_transient_error(&e) => (),
-        Err(e) => Err(e)?,
-    };
+    if config.sts_validation() {
+        let mut sts_builder = aws_sdk_sts::config::Builder::from(default_config);
+        if let Some(region) = config.region() {
+            sts_builder.set_region(Some(Region::new(region.clone())));
+        }
+
+        let sts_client = aws_sdk_sts::Client::from_conf(sts_builder.build());
+        match sts_client.get_caller_identity().send().await {
+            Ok(_) => (),
+            Err(e) => Err(e)?,
+        };
+    }
 
     Ok(aws_sdk_secretsmanager::Client::from_conf(
         asm_builder.build(),
