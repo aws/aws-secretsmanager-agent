@@ -123,7 +123,6 @@ pub async fn validate_and_create_asm_client(
     config: &Config,
 ) -> Result<SecretsManagerClient, Box<dyn std::error::Error>> {
     use aws_config::{BehaviorVersion, Region};
-    use aws_secretsmanager_caching::error::is_transient_error;
 
     let default_config = &aws_config::load_defaults(BehaviorVersion::latest()).await;
     let mut asm_builder = aws_sdk_secretsmanager::config::Builder::from(default_config)
