@@ -42,7 +42,7 @@ struct ConfigFile {
     max_conn: String,
     region: Option<String>,
     ignore_transient_errors: bool,
-    sts_validation: bool,
+    validate_credentials: bool,
 }
 
 /// The log levels supported by the daemon.
@@ -106,7 +106,7 @@ pub struct Config {
     ignore_transient_errors: bool,
 
     /// Whether the agent should validate AWS credentials at startup
-    sts_validation: bool,
+    validate_credentials: bool,
 }
 
 /// The default configuration options.
@@ -150,7 +150,7 @@ impl Config {
             .set_default("max_conn", DEFAULT_MAX_CONNECTIONS)?
             .set_default("region", DEFAULT_REGION)?
             .set_default("ignore_transient_errors", DEFAULT_IGNORE_TRANSIENT_ERRORS)?
-            .set_default("sts_validation", DEFAULT_STS_CHECK)?;
+            .set_default("validate_credentials", DEFAULT_STS_CHECK)?;
 
         // Merge the config overrides onto the default configurations, if provided.
         config = match file_path {
@@ -257,9 +257,9 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// * `sts_validation` - Whether the agent should validate AWS credentials at startup. Defaults to "true"
-    pub fn sts_validation(&self) -> bool {
-        self.sts_validation
+    /// * `validate_credentials` - Whether the agent should validate AWS credentials at startup. Defaults to "true"
+    pub fn validate_credentials(&self) -> bool {
+        self.validate_credentials
     }
 
     /// Private helper that fills in the Config instance from the specified
@@ -310,7 +310,7 @@ impl Config {
             )?,
             region: config_file.region,
             ignore_transient_errors: config_file.ignore_transient_errors,
-            sts_validation: config_file.sts_validation,
+            validate_credentials: config_file.validate_credentials,
         };
 
         // Additional validations.
@@ -394,7 +394,7 @@ mod tests {
             max_conn: String::from(DEFAULT_MAX_CONNECTIONS),
             region: None,
             ignore_transient_errors: DEFAULT_IGNORE_TRANSIENT_ERRORS,
-            sts_validation: DEFAULT_STS_CHECK,
+            validate_credentials: DEFAULT_STS_CHECK,
         }
     }
 
@@ -421,7 +421,7 @@ mod tests {
         assert_eq!(config.clone().max_conn(), 800);
         assert_eq!(config.clone().region(), None);
         assert!(config.ignore_transient_errors());
-        assert!(config.sts_validation());
+        assert!(config.validate_credentials());
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -447,7 +447,7 @@ mod tests {
         assert_eq!(config.clone().max_conn(), 10);
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
         assert!(!config.ignore_transient_errors());
-        assert!(!config.sts_validation());
+        assert!(!config.validate_credentials());
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.
@@ -612,7 +612,7 @@ mod tests {
         assert_eq!(config.clone().log_level(), LogLevel::Info);
         assert_eq!(config.clone().http_port(), 2773);
         assert_eq!(config.clone().ttl(), Duration::from_secs(300));
-        assert!(config.sts_validation());
+        assert!(config.validate_credentials());
         assert_eq!(
             config.clone().cache_size(),
             NonZeroUsize::new(1000).unwrap()

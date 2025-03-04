@@ -132,7 +132,7 @@ pub async fn validate_and_create_asm_client(
         asm_builder.set_region(Some(Region::new(region.clone())));
     }
 
-    if config.sts_validation() {
+    if config.validate_credentials() {
         let mut sts_builder = aws_sdk_sts::config::Builder::from(default_config);
         if let Some(region) = config.region() {
             sts_builder.set_region(Some(Region::new(region.clone())));
