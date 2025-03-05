@@ -25,5 +25,5 @@ aws-smithy-mocks-experimental = "0"
 aws-smithy-runtime = { version = "1", features = ["test-util", "wire-mock"] }
 aws-sdk-secretsmanager = { version = "1", features = ["test-util"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "test-util"] }
-http = "0"
+http = "1"
 tokio-test = "0.4.4"
