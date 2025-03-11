@@ -235,9 +235,7 @@ The following instructions show how to get a secret named *MyTest* by using the 
 
 **To create a Lambda extension that packages the Secrets Manager Agent**
 
-1. Create a Python Lambda function that reads the SSRF token from environment variable `AWS_TOKEN`, and queries `http://localhost:2773/secretsmanager/get?secretId=MyTest` to get the secret. Be sure to specify environment variable `AWS_TOKEN` for your lambda, and additionally, implement retry logic in your application code to accommodate delays in initialization and registration of the Lambda extension\.
-
-1. From the root of the Secrets Manager Agent code package, run the following commands to test the Lambda extension\.
+1. Package the agent as a layer. From the root of the Secrets Manager Agent code package, run the following example commands\:
 
    ```sh
    AWS_ACCOUNT_ID=<AWS_ACCOUNT_ID>
@@ -250,7 +248,7 @@ The following instructions show how to get a secret named *MyTest* by using the 
    mkdir -p ./bin
    cp ./target/x86_64-unknown-linux-gnu/release/aws_secretsmanager_agent ./bin/secrets-manager-agent
    
-   # Copy the `secrets-manager-agent-extension.sh` script into the `extensions` folder.
+   # Copy the `secrets-manager-agent-extension.sh` example script into the `extensions` folder.
    mkdir -p ./extensions
    cp aws_secretsmanager_agent/examples/example-lambda-extension/secrets-manager-agent-extension.sh ./extensions
    
@@ -261,14 +259,22 @@ The following instructions show how to get a secret named *MyTest* by using the 
    LAYER_VERSION_ARN=$(aws lambda publish-layer-version \
        --layer-name secrets-manager-agent-extension \
        --zip-file "fileb://secrets-manager-agent-extension.zip" | jq -r '.LayerVersionArn')
-   
+   ```
+
+2. The default configuration of the agent will automatically set the SSRF token to the value set in the pre-set `AWS_SESSION_TOKEN` or `AWS_CONTAINER_AUTHORIZATION_TOKEN` environment variables (the latter variable for Lambda functions with SnapStart enabled). Alternatively, you can define the `AWS_TOKEN` environment variable with an arbitrary value for your Lambda function instead as this variable takes precedence over the other two. If you choose to use the `AWS_TOKEN` environment variable, you must set that environment variable with a `lambda:UpdateFunctionConfiguration` call\.
+
+
+3. Attach the layer version  to your Lambda function:
+   ```sh
    # Attach the layer version to the Lambda function
    aws lambda update-function-configuration \
        --function-name $LAMBDA_ARN \
        --layers "$LAYER_VERSION_ARN"
    ```
+4. Update your Lambda function to query `http://localhost:2773/secretsmanager/get?secretId=MyTest` with the `X-Aws-Parameters-Secrets-Token` header value set to the value of the SSRF token sourced from one the environment variables mentioned above to retrieve the secret. Be sure to implement retry logic in your application code to accommodate delays in initialization and registration of the Lambda extension\.
 
-1. Invoke the Lambda function to verify that the secret is being correctly fetched\. 
+
+5. Invoke the Lambda function to verify that the secret is being correctly fetched\. 
 
 ------
 
@@ -339,7 +345,95 @@ def get_secret():
         # Handle network errors
         raise Exception(f"Error: {e}")
 ```
+------
 
+**Force-refresh secrets with `RefreshNow`**
+
+Learn how to use the refreshNow parameter to force the Secrets Manager Agent (SMA) to refresh secret values.
+
+Secrets Manager Agent uses an in-memory cache to store secret values, which it refreshes periodically. By default, this refresh occurs when you request a secret after the Time to Live (TTL) has expired, typically every 300 seconds. However, this approach can sometimes result in stale secret values, especially if a secret rotates before the cache entry expires.
+
+To address this limitation, Secrets Manager Agent supports a parameter called `refreshNow` in the URL. You can use this parameter to force an immediate refresh of a secret's value, bypassing the cache and ensuring you have the most up-to-date information.
+
+Default behavior (without `refreshNow`):
+- Uses cached values until TTL expires
+- Refreshes secrets only after TTL (default 300 seconds)
+- May return stale values if secrets rotate before the cache expires
+
+Behavior with `refreshNow=true`:
+- Bypasses the cache entirely
+- Retrieves the latest secret value directly from Secrets Manager
+- Updates the cache with the fresh value and resets the TTL
+- Ensures you always get the most current secret value
+
+By using the `refreshNow` parameter, you can ensure that you're always working with the most current secret values, even in scenarios where frequent secret rotation is necessary.
+
+## `refreshNow` parameter behavior
+
+`refreshNow` set to `true`:
+- If Secrets Manager Agent can't retrieve the secret from Secrets Manager, it returns an error and does not update the cache.
+
+`refreshNow` set to `false` or not specified:
+- Secrets Manager Agent follows its default behavior:
+  - If the cached value is fresher than the TTL, Secrets Manager Agent returns the cached value.
+  - If the cached value is older than the TTL, Secrets Manager Agent makes a call to Secrets Manager.
+
+## Using the refreshNow parameter
+
+To use the `refreshNow` parameter, include it in the URL for the Secrets Manager Agent GET request.
+
+### Example - Secrets Manager Agent GET request with refreshNow parameter
+
+> **Important**: The default value of `refreshNow` is `false`. When set to `true`, it overrides the TTL specified in the Secrets Manager Agent configuration file and makes an API call to Secrets Manager.
+
+#### [ curl ]
+
+The following curl example shows how force Secrets Manager Agent to refresh the secret. The example relies on the SSRF being present in a file, which is where it is stored by the install script.
+
+```bash
+curl -v -H \
+"X-Aws-Parameters-Secrets-Token: $(</var/run/awssmatoken)" \
+'http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>&refreshNow=true' \
+echo
+```
+
+#### [ Python ]
+
+The following Python example shows how to get a secret from the Secrets Manager Agent. The example relies on the SSRF being present in a file, which is where it is stored by the install script.
+
+```python
+import requests
+import json
+
+# Function that fetches the secret from Secrets Manager Agent for the provided secret id. 
+def get_secret():
+    # Construct the URL for the GET request
+    url = f"http://localhost:2773/secretsmanager/get?secretId=<YOUR_SECRET_ID>&refreshNow=true"
+
+    # Get the SSRF token from the token file
+    with open('/var/run/awssmatoken') as fp:
+        token = fp.read() 
+
+    headers = {
+        "X-Aws-Parameters-Secrets-Token": token.strip()
+    }
+
+    try:
+        # Send the GET request with headers
+        response = requests.get(url, headers=headers)
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Return the secret value
+            return response.text
+        else:
+            # Handle error cases
+            raise Exception(f"Status code {response.status_code} - {response.text}")
+
+    except Exception as e:
+        # Handle network errors
+        raise Exception(f"Error: {e}")
+```
 ------
 
 ## Configure the Secrets Manager Agent<a name="secrets-manager-agent-config"></a>
@@ -350,10 +444,10 @@ The following list shows the options you can configure for the Secrets Manager A
 + **log\_level** – The level of detail reported in logs for the Secrets Manager Agent: DEBUG, INFO, WARN, ERROR, or NONE\. The default is INFO\.
 + **http\_port** – The port for the local HTTP server, in the range 1024 to 65535\. The default is 2773\.
 + **region** – The AWS Region to use for requests\. If no Region is specified, the Secrets Manager Agent determines the Region from the SDK\. For more information, see [Specify your credentials and default Region](https://docs.aws.amazon.com/sdk-for-rust/latest/dg/credentials.html) in the *AWS SDK for Rust Developer Guide*\.
-+ **ttl\_seconds** – The TTL in seconds for the cached items, in the range 1 to 3600\. The default is 300\. This setting is not used if the cache size is 0\. 
-+ **cache\_size** – The maximum number of secrets that can be stored in the cache, in the range 0 to 1000\. 0 indicates that there is no caching\. The default is 1000\. 
++ **ttl\_seconds** – The TTL in seconds for the cached items, in the range 0 to 3600\. The default is 300\. 0 indicates that there is no caching\.
++ **cache\_size** – The maximum number of secrets that can be stored in the cache, in the range 1 to 1000\. The default is 1000\. 
 + **ssrf\_headers** – A list of header names the Secrets Manager Agent checks for the SSRF token\. The default is "X\-Aws\-Parameters\-Secrets\-Token, X\-Vault\-Token"\. 
-+ **ssrf\_env\_variables** – A list of environment variable names the Secrets Manager Agent checks for the SSRF token\. The environment variable can contain the token or a reference to the token file as in: `AWS_TOKEN=file:///var/run/awssmatoken`\. The default is "AWS\_TOKEN, AWS\_SESSION\_TOKEN"\.
++ **ssrf\_env\_variables** – A list of environment variable names the Secrets Manager Agent checks in sequential order for the SSRF token\. The environment variable can contain the token or a reference to the token file as in: `AWS_TOKEN=file:///var/run/awssmatoken`\. The default is "AWS\_TOKEN, AWS\_SESSION\_TOKEN, AWS\_CONTAINER\_AUTHORIZATION\_TOKEN\".
 + **path\_prefix** – The URI prefix used to determine if the request is a path based request\. The default is "/v1/"\.
 + **max\_conn** – The maximum number of connections from HTTP clients that the Secrets Manager Agent allows, in the range 1 to 1000\. The default is 800\.
 
