@@ -123,7 +123,7 @@ pub async fn validate_and_create_asm_client(
     config: &Config,
 ) -> Result<SecretsManagerClient, Box<dyn std::error::Error>> {
     use aws_config::{BehaviorVersion, Region};
-
+    use aws_secretsmanager_caching::error::is_transient_error;
     let default_config = &aws_config::load_defaults(BehaviorVersion::latest()).await;
     let mut asm_builder = aws_sdk_secretsmanager::config::Builder::from(default_config)
         .interceptor(AgentModifierInterceptor);
@@ -141,6 +141,7 @@ pub async fn validate_and_create_asm_client(
         let sts_client = aws_sdk_sts::Client::from_conf(sts_builder.build());
         match sts_client.get_caller_identity().send().await {
             Ok(_) => (),
+            Err(e) if config.ignore_transient_errors() && is_transient_error(&e) => (),
             Err(e) => Err(e)?,
         };
     }
