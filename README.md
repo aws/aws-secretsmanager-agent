@@ -25,7 +25,13 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
   - [Step 3: Retrieve secrets with the Secrets Manager Agent](#step-3-retrieve-secrets-with-the-secrets-manager-agent)
       - [\[ curl \]](#-curl-)
       - [\[ Python \]](#-python-)
+  - [`refreshNow` parameter behavior](#refreshnow-parameter-behavior)
+  - [Using the refreshNow parameter](#using-the-refreshnow-parameter)
+    - [Example - Secrets Manager Agent GET request with refreshNow parameter](#example---secrets-manager-agent-get-request-with-refreshnow-parameter)
+      - [\[ curl \]](#-curl--1)
+      - [\[ Python \]](#-python--1)
   - [Configure the Secrets Manager Agent](#configure-the-secrets-manager-agent)
+  - [Optional features](#optional-features)
   - [Logging](#logging)
   - [Security considerations](#security-considerations)
 
@@ -450,6 +456,11 @@ The following list shows the options you can configure for the Secrets Manager A
 + **ssrf\_env\_variables** – A list of environment variable names the Secrets Manager Agent checks in sequential order for the SSRF token\. The environment variable can contain the token or a reference to the token file as in: `AWS_TOKEN=file:///var/run/awssmatoken`\. The default is "AWS\_TOKEN, AWS\_SESSION\_TOKEN, AWS\_CONTAINER\_AUTHORIZATION\_TOKEN\".
 + **path\_prefix** – The URI prefix used to determine if the request is a path based request\. The default is "/v1/"\.
 + **max\_conn** – The maximum number of connections from HTTP clients that the Secrets Manager Agent allows, in the range 1 to 1000\. The default is 800\.
+
+## Optional features<a name="secrets-manager-agent-features"></a>
+
+The Secrets Manager Agent can be built with optional features by passing the `--features` flag to `cargo build`. The available features are:
+* `prefer-post-quantum`: makes `X25519MLKEM768` the highest-priority key exchange algorithm. Otherwise, it is available but not highest-priority. `X25519MLKEM768` is a hybrid, post-quantum-secure key exchange algorithm.
 
 ## Logging<a name="secrets-manager-agent-log"></a>
 

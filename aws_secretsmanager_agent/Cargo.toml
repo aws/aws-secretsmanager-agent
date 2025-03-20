@@ -1,6 +1,6 @@
 [package]
 name = "aws_secretsmanager_agent"
-version = "1.0.1"
+version = "1.1.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "The AWS Secrets Manager Agent is a local HTTP service that you can install and use in your compute environments to read secrets from Secrets Manager and cache them in memory."
@@ -28,7 +28,7 @@ aws-sdk-sts = "1"
 log = "0.4.20"
 log4rs = { version = "1.2.0", features = ["gzip"] }
 url = "2"
-aws_secretsmanager_caching = { version = "1.0.1", path = "../aws_secretsmanager_caching" }
+aws_secretsmanager_caching = { version = "1.1.0", path = "../aws_secretsmanager_caching" }
 
 # For unit tests
 [dev-dependencies]
@@ -37,3 +37,6 @@ aws-smithy-runtime = { version = "1", features = ["test-util"] }
 tokio = {version = "1", features = ["test-util", "rt-multi-thread", "net", "macros"] }
 http = "0.2.9"
 aws-smithy-types = "1"
+
+[features]
+prefer-post-quantum = ["aws_secretsmanager_caching/prefer-post-quantum"]

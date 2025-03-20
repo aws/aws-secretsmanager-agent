@@ -544,7 +544,7 @@ dependencies = [
 
 [[package]]
 name = "aws_secretsmanager_agent"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
@@ -571,7 +571,7 @@ dependencies = [
 
 [[package]]
 name = "aws_secretsmanager_caching"
-version = "1.0.1"
+version = "1.1.0"
 dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
@@ -581,6 +581,7 @@ dependencies = [
  "aws-smithy-types",
  "http 0.2.12",
  "linked-hash-map",
+ "rustls 0.23.25",
  "serde",
  "serde_json",
  "serde_with",
@@ -2338,6 +2339,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "822ee9188ac4ec04a2f0531e55d035fb2de73f18b41a63c70c2712503b6fb13c"
 dependencies = [
  "aws-lc-rs",
+ "log",
  "once_cell",
  "rustls-pki-types",
  "rustls-webpki 0.103.0",
