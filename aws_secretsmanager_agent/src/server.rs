@@ -27,6 +27,20 @@ pub struct Server {
     max_conn: usize,
 }
 
+/// HTTP response relevant fields
+#[derive(Debug)]
+struct ResponseContent {
+    rsp_body: String,
+    content_type: ContentType,
+}
+
+/// Used to set Content-Type header
+#[derive(Debug)]
+enum ContentType {
+    Plain,
+    Json,
+}
+
 /// Handle incoming HTTP requests.
 ///
 /// Implements the HTTP handler. Each incomming request is handled in its own
@@ -108,11 +122,22 @@ impl Server {
 
         // Format the response.
         match result {
-            Ok(rsp_body) => Ok(Response::builder()
+            Ok(ResponseContent {
+                rsp_body,
+                content_type,
+            }) => Ok(Response::builder()
+                .header(
+                    "Content-Type",
+                    match content_type {
+                        ContentType::Plain => "text/plain",
+                        ContentType::Json => "application/json",
+                    },
+                )
                 .body(Full::new(Bytes::from(rsp_body)))
                 .unwrap()),
             Err(e) => Ok(Response::builder()
                 .status(e.0)
+                .header("Content-Type", "text/plain")
                 .body(Full::new(Bytes::from(e.1)))
                 .unwrap()),
         }
@@ -134,40 +159,49 @@ impl Server {
         &self,
         req: &Request<IncomingBody>,
         count: usize,
-    ) -> Result<String, HttpError> {
+    ) -> Result<ResponseContent, HttpError> {
         self.validate_max_conn(req, count)?; // Verify connection limits are not exceeded
         self.validate_token(req)?; // Check for a valid SSRF token
         self.validate_method(req)?; // Allow only GET requests
 
         match req.uri().path() {
-            "/ping" => Ok("healthy".into()), // Standard health check
+            "/ping" => Ok(ResponseContent {
+                rsp_body: "healthy".into(),
+                content_type: ContentType::Plain,
+            }), // Standard health check
 
             // Lambda extension style query
             "/secretsmanager/get" => {
                 let qry = GSVQuery::try_from_query(&req.uri().to_string())?;
-                Ok(self
-                    .cache_mgr
-                    .fetch(
-                        &qry.secret_id,
-                        qry.version_id.as_deref(),
-                        qry.version_stage.as_deref(),
-                        qry.refresh_now,
-                    )
-                    .await?)
+                Ok(ResponseContent {
+                    rsp_body: self
+                        .cache_mgr
+                        .fetch(
+                            &qry.secret_id,
+                            qry.version_id.as_deref(),
+                            qry.version_stage.as_deref(),
+                            qry.refresh_now,
+                        )
+                        .await?,
+                    content_type: ContentType::Json,
+                })
             }
 
             // Path style request
             path if path.starts_with(self.path_prefix.as_str()) => {
                 let qry = GSVQuery::try_from_path_query(&req.uri().to_string(), &self.path_prefix)?;
-                Ok(self
-                    .cache_mgr
-                    .fetch(
-                        &qry.secret_id,
-                        qry.version_id.as_deref(),
-                        qry.version_stage.as_deref(),
-                        qry.refresh_now,
-                    )
-                    .await?)
+                Ok(ResponseContent {
+                    rsp_body: self
+                        .cache_mgr
+                        .fetch(
+                            &qry.secret_id,
+                            qry.version_id.as_deref(),
+                            qry.version_stage.as_deref(),
+                            qry.refresh_now,
+                        )
+                        .await?,
+                    content_type: ContentType::Json,
+                })
             }
             _ => Err(HttpError(404, "Not found".into())),
         }

@@ -51,7 +51,7 @@ impl SecretsManagerCachingClient {
     /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
     /// use std::num::NonZeroUsize;
     /// use std::time::Duration;
-
+    ///
     /// let asm_client = SecretsManagerClient::from_conf(
     /// Config::builder()
     ///     .behavior_version_latest()
@@ -118,15 +118,15 @@ impl SecretsManagerCachingClient {
     /// use std::num::NonZeroUsize;
     /// use std::time::Duration;
     /// use aws_config::{BehaviorVersion, Region};
-
+    ///
     /// let config = aws_config::load_defaults(BehaviorVersion::latest())
     /// .await
     /// .into_builder()
     /// .region(Region::from_static("us-west-2"))
     /// .build();
-
+    ///
     /// let asm_builder = aws_sdk_secretsmanager::config::Builder::from(&config);
-
+    ///
     /// let client = SecretsManagerCachingClient::from_builder(
     /// asm_builder,
     /// NonZeroUsize::new(1000).unwrap(),
@@ -164,9 +164,9 @@ impl SecretsManagerCachingClient {
         refresh_now: bool,
     ) -> Result<GetSecretValueOutputDef, Box<dyn Error>> {
         if refresh_now {
-            return Ok(self
+            return self
                 .refresh_secret_value(secret_id, version_id, version_stage, None)
-                .await?);
+                .await;
         }
 
         let read_lock = self.store.read().await;
