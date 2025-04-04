@@ -42,6 +42,10 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
 
 ---
 
+**NOTE:** Building the agent with the `fips` feature enabled on macOS currently requires the following workaround:
+
+- Create an environment variable called `SDKROOT` which is set to the result of running `xcrun --show-sdk-path`
+
 #### [ RPM\-based systems ]
 
 1. On RPM\-based systems such as AL2023, you can install the development tools by using the Development Tools group\.
