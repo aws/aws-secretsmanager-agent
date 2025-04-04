@@ -27,6 +27,14 @@ jobs:
           components: rustfmt, clippy, llvm-tools-preview
       - name: Install grcov
         run: cargo install grcov
+      - name: Install ninja-build tool for aws-lc-fips-sys on Windows
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v6
+      - name: Install golang for aws-lc-fips-sys on macos
+        if: runner.os == 'MacOS'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
       - name: Build
         run: cargo build --verbose
       - name: Run tests
