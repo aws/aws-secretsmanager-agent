@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 const DEFAULT_LOG_LEVEL: &str = "info";
+const DEFAULT_LOG_TO_FILE: bool = true;
 const DEFAULT_HTTP_PORT: &str = "2773";
 const DEFAULT_TTL_SECONDS: &str = "300";
 const DEFAULT_CACHE_SIZE: &str = "1000";
@@ -33,6 +34,7 @@ const DEFAULT_REGION: Option<String> = None;
 #[serde(deny_unknown_fields)] // We want to error out when file has misspelled or unknown configurations.
 struct ConfigFile {
     log_level: String,
+    log_to_file: bool,
     http_port: String,
     ttl_seconds: String,
     cache_size: String,
@@ -76,6 +78,9 @@ impl FromStr for LogLevel {
 pub struct Config {
     /// The level of logging the agent provides ie. debug, info, warn, error or none.
     log_level: LogLevel,
+
+    // Whether to write logs to a file (default) or to stdout/stderr
+    log_to_file: bool,
 
     /// The port for the local HTTP server.
     http_port: u16,
@@ -135,6 +140,7 @@ impl Config {
         // Setting default configurations
         let mut config = ConfigLib::builder()
             .set_default("log_level", DEFAULT_LOG_LEVEL)?
+            .set_default("log_to_file", DEFAULT_LOG_TO_FILE)?
             .set_default("http_port", DEFAULT_HTTP_PORT)?
             .set_default("ttl_seconds", DEFAULT_TTL_SECONDS)?
             .set_default("cache_size", DEFAULT_CACHE_SIZE)?
@@ -168,6 +174,16 @@ impl Config {
     /// * `LogLevel` - The log level to use. Defaults to Info.
     pub fn log_level(&self) -> LogLevel {
         self.log_level
+    }
+
+    /// Whether to write logs to a file (default) or to stdout/stderr
+    ///
+    /// # Returns
+    ///
+    /// * `log_to_file` - `true` if writing logs to a file (default), `false` if writing logs to
+    /// stdout/stderr
+    pub fn log_to_file(&self) -> bool {
+        self.log_to_file
     }
 
     /// The port for the local HTTP server to listen for incomming requests.
@@ -278,6 +294,7 @@ impl Config {
         let config = Config {
             // Configurations that are allowed to be overridden.
             log_level: LogLevel::from_str(config_file.log_level.as_str())?,
+            log_to_file: config_file.log_to_file,
             http_port: parse_num::<u16>(
                 &config_file.http_port,
                 INVALID_HTTP_PORT_ERR_MSG,
@@ -385,6 +402,7 @@ mod tests {
     fn get_default_config_file() -> ConfigFile {
         ConfigFile {
             log_level: String::from(DEFAULT_LOG_LEVEL),
+            log_to_file: true,
             http_port: String::from(DEFAULT_HTTP_PORT),
             ttl_seconds: String::from(DEFAULT_TTL_SECONDS),
             cache_size: String::from(DEFAULT_CACHE_SIZE),

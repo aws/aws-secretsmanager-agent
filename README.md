@@ -453,6 +453,7 @@ To change the configuration of the Secrets Manager Agent, create a [TOML](https:
 
 The following list shows the options you can configure for the Secrets Manager Agent\.
 + **log\_level** – The level of detail reported in logs for the Secrets Manager Agent: DEBUG, INFO, WARN, ERROR, or NONE\. The default is INFO\.
++ **log\_to\_file** - Whether to log to a file or stdout/stderr: `true` or `false`. The default is `true`.
 + **http\_port** – The port for the local HTTP server, in the range 1024 to 65535\. The default is 2773\.
 + **region** – The AWS Region to use for requests\. If no Region is specified, the Secrets Manager Agent determines the Region from the SDK\. For more information, see [Specify your credentials and default Region](https://docs.aws.amazon.com/sdk-for-rust/latest/dg/credentials.html) in the *AWS SDK for Rust Developer Guide*\.
 + **ttl\_seconds** – The TTL in seconds for the cached items, in the range 0 to 3600\. The default is 300\. 0 indicates that there is no caching\.
@@ -470,7 +471,7 @@ The Secrets Manager Agent can be built with optional features by passing the `--
 
 ## Logging<a name="secrets-manager-agent-log"></a>
 
-The Secrets Manager Agent logs errors locally to the file `logs/secrets_manager_agent.log`\. When your application calls the Secrets Manager Agent to get a secret, those calls appear in the local log\. They do not appear in the CloudTrail logs\. 
+The Secrets Manager Agent logs errors locally to the file `logs/secrets_manager_agent.log` or to stdout/stderr depending on the `log_to_file` config variable\. When your application calls the Secrets Manager Agent to get a secret, those calls appear in the local log\. They do not appear in the CloudTrail logs\. 
 
 The Secrets Manager Agent creates a new log file when the file reaches 10 MB, and it stores up to five log files total\. 
 
