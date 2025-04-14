@@ -26,8 +26,6 @@ const LOG_ARCHIVE_FILE_PATH_PATTERN: &str = "./logs/archive/secrets_manager_agen
 const MAX_LOG_ARCHIVE_FILES: u32 = 5;
 const BYTES_PER_MB: u64 = 1024 * 1024;
 const MAX_ALLOWED_LOG_SIZE_IN_MB: u64 = 10;
-const FILE_APPENDER: &str = "FILE_APPENDER";
-const CONSOLE_APPENDER: &str = "CONSOLE_APPENDER";
 
 #[doc(hidden)]
 static STARTUP: Once = Once::new();
@@ -47,11 +45,10 @@ pub fn init_logger(
     log_level: LogLevel,
     log_to_file: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let log_config: Config;
-    let mut logger_type: &str = "File";
-
-    match log_to_file {
+    let (log_config, logger_type) = match log_to_file {
         true => {
+            let file_appender = "FILE_APPENDER";
+
             let fixed_window_roller = FixedWindowRoller::builder()
                 .build(LOG_ARCHIVE_FILE_PATH_PATTERN, MAX_LOG_ARCHIVE_FILES)?;
             let fixed_window_roller = Box::new(fixed_window_roller);
@@ -64,29 +61,37 @@ pub fn init_logger(
             let rolling_file_appender =
                 RollingFileAppender::builder().build(LOG_FILE_PATH, compound_policy)?;
 
-            log_config = Config::builder()
-                .appender(Appender::builder().build(FILE_APPENDER, Box::new(rolling_file_appender)))
-                .build(
-                    Root::builder()
-                        .appender(FILE_APPENDER)
-                        .build(log_level.into()),
-                )?;
+            (
+                Config::builder()
+                    .appender(
+                        Appender::builder().build(file_appender, Box::new(rolling_file_appender)),
+                    )
+                    .build(
+                        Root::builder()
+                            .appender(file_appender)
+                            .build(log_level.into()),
+                    )?,
+                "File",
+            )
         }
         false => {
-            logger_type = "Console";
+            let console_appender = "CONSOLE_APPENDER";
 
-            log_config = Config::builder()
-                .appender(Appender::builder().build(
-                    CONSOLE_APPENDER,
-                    Box::new(ConsoleAppender::builder().build()),
-                ))
-                .build(
-                    Root::builder()
-                        .appender(CONSOLE_APPENDER)
-                        .build(log_level.into()),
-                )?;
+            (
+                Config::builder()
+                    .appender(Appender::builder().build(
+                        console_appender,
+                        Box::new(ConsoleAppender::builder().build()),
+                    ))
+                    .build(
+                        Root::builder()
+                            .appender(console_appender)
+                            .build(log_level.into()),
+                    )?,
+                "Console",
+            )
         }
-    }
+    };
 
     // Don't initialize logging more than once in unit tests.
     let mut res: Option<SetLoggerError> = None;
@@ -100,9 +105,10 @@ pub fn init_logger(
     }
 
     info!(
-        "{} logger initialized at `{:?}` log level.",
+        "{} logger initialized with `{:?}` log level.",
         logger_type, log_level
     );
+
     Ok(())
 }
 
