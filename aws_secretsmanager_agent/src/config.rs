@@ -402,7 +402,7 @@ mod tests {
     fn get_default_config_file() -> ConfigFile {
         ConfigFile {
             log_level: String::from(DEFAULT_LOG_LEVEL),
-            log_to_file: true,
+            log_to_file: DEFAULT_LOG_TO_FILE,
             http_port: String::from(DEFAULT_HTTP_PORT),
             ttl_seconds: String::from(DEFAULT_TTL_SECONDS),
             cache_size: String::from(DEFAULT_CACHE_SIZE),
