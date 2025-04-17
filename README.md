@@ -40,6 +40,11 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
 To build the Secrets Manager Agent binary natively, you need the standard development tools and the Rust tools\. Alternatively, you can cross\-compile for systems that support it, or you can use Rust cross to cross\-compile\.
 
 ------
+
+**NOTE:** Building the agent with the `fips` feature enabled on macOS currently requires the following workaround:
+
+- Create an environment variable called `SDKROOT` which is set to the result of running `xcrun --show-sdk-path`
+
 #### [ RPM\-based systems ]
 
 1. On RPM\-based systems such as AL2023, you can install the development tools by using the Development Tools group\.
@@ -461,6 +466,7 @@ The following list shows the options you can configure for the Secrets Manager A
 
 The Secrets Manager Agent can be built with optional features by passing the `--features` flag to `cargo build`. The available features are:
 * `prefer-post-quantum`: makes `X25519MLKEM768` the highest-priority key exchange algorithm. Otherwise, it is available but not highest-priority. `X25519MLKEM768` is a hybrid, post-quantum-secure key exchange algorithm.
+* `fips`: restricts the cipher suites used by the agent to only FIPS-approved ciphers
 
 ## Logging<a name="secrets-manager-agent-log"></a>
 

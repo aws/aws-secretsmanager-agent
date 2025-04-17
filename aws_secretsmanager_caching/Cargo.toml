@@ -31,3 +31,4 @@ tokio-test = "0.4.4"
 
 [features]
 prefer-post-quantum = ["rustls/prefer-post-quantum"]
+fips = ["rustls/fips"]
