@@ -152,7 +152,7 @@ async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
     };
 
     // Initialize logging
-    if let Err(msg) = init_logger(config.log_level()) {
+    if let Err(msg) = init_logger(config.log_level(), config.log_to_file()) {
         err_exit(&msg.to_string(), "");
     }
 
@@ -168,14 +168,11 @@ async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
 
     // Bind the listener to the specified port
     let addr: SocketAddr = ([127, 0, 0, 1], config.http_port()).into();
-    let listener: TcpListener = match TcpListener::bind(addr).await {
-        Ok(x) => x,
-        Err(err) => {
-            let msg = format!("Could not bind to {addr}: {}", err);
-            error!("{msg}");
-            err_exit(&msg, "");
-        }
-    };
+    let listener: TcpListener = TcpListener::bind(addr).await.unwrap_or_else(|err| {
+        let msg = format!("Could not bind to {addr}: {}", err);
+        error!("{msg}");
+        err_exit(&msg, "")
+    });
 
     (config, listener)
 }
@@ -233,7 +230,8 @@ mod tests {
     use tokio::task::JoinSet;
     use tokio::time::timeout;
     #[cfg(unix)]
-    use utils::tests::set_test_var; // set_test_var does not work across threads (e.g. run_request)
+    // set_test_var does not work across threads (e.g. run_request)
+    use utils::tests::set_test_var;
     use utils::tests::{tmpfile_name, CleanUp};
 
     fn one_shot() -> bool {
