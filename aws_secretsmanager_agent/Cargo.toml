@@ -39,5 +39,6 @@ http = "0.2.9"
 aws-smithy-types = "1"
 
 [features]
+default = ["prefer-post-quantum"]
 prefer-post-quantum = ["aws_secretsmanager_caching/prefer-post-quantum"]
 fips = ["aws_secretsmanager_caching/fips"]

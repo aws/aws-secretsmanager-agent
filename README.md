@@ -31,7 +31,7 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
       - [\[ curl \]](#-curl--1)
       - [\[ Python \]](#-python--1)
   - [Configure the Secrets Manager Agent](#configure-the-secrets-manager-agent)
-  - [Optional features](#optional-features)
+  - [Features](#features)
   - [Logging](#logging)
   - [Security considerations](#security-considerations)
 
@@ -463,11 +463,13 @@ The following list shows the options you can configure for the Secrets Manager A
 + **path\_prefix** – The URI prefix used to determine if the request is a path based request\. The default is "/v1/"\.
 + **max\_conn** – The maximum number of connections from HTTP clients that the Secrets Manager Agent allows, in the range 1 to 1000\. The default is 800\.
 
-## Optional features<a name="secrets-manager-agent-features"></a>
+## Features<a name="secrets-manager-agent-features"></a>
 
-The Secrets Manager Agent can be built with optional features by passing the `--features` flag to `cargo build`. The available features are:
-* `prefer-post-quantum`: makes `X25519MLKEM768` the highest-priority key exchange algorithm. Otherwise, it is available but not highest-priority. `X25519MLKEM768` is a hybrid, post-quantum-secure key exchange algorithm.
+The Secrets Manager Agent offers two Cargo features, one of which is enabled by default:
+* `prefer-post-quantum`: makes `X25519MLKEM768` the highest-priority key exchange algorithm. `X25519MLKEM768` is a hybrid, post-quantum-secure key exchange algorithm.
 * `fips`: restricts the cipher suites used by the agent to only FIPS-approved ciphers
+
+The `prefer-post-quantum` feature is enabled by default, while the `fips` feature can be enabled by passing the `--features` flag to `cargo build` when building the Agent.
 
 ## Logging<a name="secrets-manager-agent-log"></a>
 
