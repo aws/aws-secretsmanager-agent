@@ -28,10 +28,10 @@ jobs:
           prettier_options: --check **/*.{md,yml}
 
       - name: Setup Rust toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
-          cache: false
+          override: true
           components: rustfmt, clippy, llvm-tools-preview
 
       - name: Install grcov
