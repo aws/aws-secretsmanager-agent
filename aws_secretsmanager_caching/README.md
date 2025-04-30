@@ -8,10 +8,10 @@ The AWS Secrets Manager Rust Caching Client enables in-process caching of secret
 
 To use this client you must have:
 
-* A Rust 2021 development environment. If you do not have one, go to [Rust Getting Started](https://www.rust-lang.org/learn/get-started) on the Rust Programming Language website, then download and install Rust.
-* An Amazon Web Services (AWS) account to access secrets stored in AWS Secrets Manager.
-  * **To create an AWS account**, go to [Sign In or Create an AWS Account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html) and then choose **I am a new user.** Follow the instructions to create an AWS account.
-  * **To create a secret in AWS Secrets Manager**, go to [Creating Secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_create-basic-secret.html) and follow the instructions on that page.
+- A Rust 2021 development environment. If you do not have one, go to [Rust Getting Started](https://www.rust-lang.org/learn/get-started) on the Rust Programming Language website, then download and install Rust.
+- An Amazon Web Services (AWS) account to access secrets stored in AWS Secrets Manager.
+  - **To create an AWS account**, go to [Sign In or Create an AWS Account](https://portal.aws.amazon.com/gp/aws/developer/registration/index.html) and then choose **I am a new user.** Follow the instructions to create an AWS account.
+  - **To create a secret in AWS Secrets Manager**, go to [Creating Secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/manage_create-basic-secret.html) and follow the instructions on that page.
 
 ### Get Started
 
@@ -50,8 +50,8 @@ let secret_string = match client.get_secret_value("MyTest", None, None).await {
 
 ### Cache Configuration
 
-* `max_size: NonZeroUsize`: The maximum number of cached secrets to maintain before evicting secrets that have not been accessed recently.
-* `ttl: Duration`: The duration a cached item is considered valid before requiring a refresh of the secret state.
+- `max_size: NonZeroUsize`: The maximum number of cached secrets to maintain before evicting secrets that have not been accessed recently.
+- `ttl: Duration`: The duration a cached item is considered valid before requiring a refresh of the secret state.
 
 ### Instantiating Cache with a custom Config and a custom Client
 
@@ -82,7 +82,7 @@ let client = match SecretsManagerCachingClient::from_builder(
 
 let secret_string = client
     .get_secret_value("MyTest", None, None)
-    .await 
+    .await
     {
         Ok(c) => c.secret_string.unwrap(),
         Err(_) => panic!("Handle this error"),
@@ -95,6 +95,6 @@ let secret_string = client
 
 Please use these community resources for getting help:
 
-* Ask a question on [Stack Overflow](https://stackoverflow.com/) and tag it with [aws-secrets-manager](https://stackoverflow.com/questions/tagged/aws-secrets-manager).
-* Open a support ticket with [AWS Support](https://console.aws.amazon.com/support/home#/)
-* If it turns out that you may have found a bug, or have a feature request, please [open an issue](https://github.com/aws/aws-secretsmanager-agent/issues/new/choose).
+- Ask a question on [Stack Overflow](https://stackoverflow.com/) and tag it with [aws-secrets-manager](https://stackoverflow.com/questions/tagged/aws-secrets-manager).
+- Open a support ticket with [AWS Support](https://console.aws.amazon.com/support/home#/)
+- If it turns out that you may have found a bug, or have a feature request, please [open an issue](https://github.com/aws/aws-secretsmanager-agent/issues/new/choose).

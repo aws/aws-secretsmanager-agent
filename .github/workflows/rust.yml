@@ -2,15 +2,15 @@ name: Rust
 
 on:
   push:
-    branches: ["main"]
+    branches: main
   pull_request:
-    branches: ["main"]
+    types: [opened, synchronize, ready_for_review]
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-Cinstrument-coverage"
-  RUSTDOCFLAGS: "-Cinstrument-coverage"
+  RUSTFLAGS: -Cinstrument-coverage
+  RUSTDOCFLAGS: -Cinstrument-coverage
 
 jobs:
   build:
@@ -20,36 +20,52 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prettier check
+        uses: creyD/prettier_action@v4
+        with:
+          dry: true
+          prettier_options: --check **/*.{md,yml}
+
+      - name: Setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
           override: true
           components: rustfmt, clippy, llvm-tools-preview
+
       - name: Install grcov
         run: cargo install grcov
+
       - name: Install ninja-build tool for aws-lc-fips-sys on Windows
         if: runner.os == 'Windows'
         uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Install NASM for aws-lc-fips-sys on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
-      - name: Install golang for aws-lc-fips-sys on macos
+
+      - name: Install golang for aws-lc-fips-sys on macOS
         if: runner.os == 'MacOS'
         uses: actions/setup-go@v5
         with:
-          go-version: "stable"
-      - name: Build
-        run: cargo build --verbose
-      - name: Run tests
+          go-version: stable
+
+      - name: Build and run tests
         run: cargo test --verbose --all-features --no-fail-fast
+
       - name: Code Coverage
         run: grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./lcov.info
+
       - name: Publish Code Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Lint
-        run: cargo fmt --all -- --check
+        run: cargo fmt --all --check
+
       - name: Clippy
         run: cargo clippy --all-targets --all-features
