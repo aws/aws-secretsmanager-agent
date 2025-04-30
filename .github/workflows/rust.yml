@@ -31,7 +31,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: nightly
-          override: true
+          cache: false
           components: rustfmt, clippy, llvm-tools-preview
 
       - name: Install grcov
