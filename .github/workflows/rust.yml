@@ -1,10 +1,8 @@
 name: Rust
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
-    branches: ["main"]
+    types: [opened, synchronize, ready_for_review]
   workflow_dispatch:
 
 env:
@@ -20,40 +18,55 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prettier
+        uses: rutajdash/prettier-cli-action@v1
+        with:
+          file_pattern: "**/*.{md,yml}"
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
           components: rustfmt, clippy, llvm-tools-preview
+
       - name: Install grcov
         run: cargo install grcov
+
       - name: Install ninja-build tool for aws-lc-fips-sys on Windows
         if: runner.os == 'Windows'
         uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Install NASM for aws-lc-fips-sys on Windows
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
+
       - name: Install golang for aws-lc-fips-sys on macos
         if: runner.os == 'MacOS'
         uses: actions/setup-go@v5
         with:
-          go-version: "stable"
+          go-version: stable
+
       - name: Check licenses
         run: |
           cargo install cargo-deny
           cargo-deny check licenses
-      - name: Build
-        run: cargo build --verbose
-      - name: Run tests
+
+      - name: Build and run tests
         run: cargo test --verbose --all-features --no-fail-fast
+
       - name: Code Coverage
         run: grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./lcov.info
+
       - name: Publish Code Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Lint
-        run: cargo fmt --all -- --check
+        run: cargo fmt --all --check
+
       - name: Clippy
         run: cargo clippy --all-targets --all-features
