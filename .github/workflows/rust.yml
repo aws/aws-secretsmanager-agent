@@ -1,8 +1,6 @@
 name: Rust
 
 on:
-  push:
-    branches: main
   pull_request:
     types: [opened, synchronize, ready_for_review]
   workflow_dispatch:
