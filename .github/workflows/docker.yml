@@ -1,8 +1,9 @@
-name: "Docker Image CI"
+name: Docker Image CI
 
 on:
   push:
-    branches: [main]
+    branches: main
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,10 +12,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
+
       - name: Build
         uses: docker/build-push-action@v6
         with:
