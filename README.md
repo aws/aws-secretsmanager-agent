@@ -466,7 +466,6 @@ The following list shows the options you can configure for the Secrets Manager A
 ## Optional features<a name="secrets-manager-agent-features"></a>
 
 The Secrets Manager Agent can be built with optional features by passing the `--features` flag to `cargo build`. The available features are:
-* `prefer-post-quantum`: makes `X25519MLKEM768` the highest-priority key exchange algorithm. Otherwise, it is available but not highest-priority. `X25519MLKEM768` is a hybrid, post-quantum-secure key exchange algorithm.
 * `fips`: restricts the cipher suites used by the agent to only FIPS-approved ciphers
 
 ## Logging<a name="secrets-manager-agent-log"></a>
