@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "aws_secretsmanager_agent"
-version = "1.2.2"
+version = "2.0.0"
 dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
@@ -595,7 +595,7 @@ dependencies = [
 
 [[package]]
 name = "aws_secretsmanager_caching"
-version = "1.2.2"
+version = "2.0.0"
 dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
