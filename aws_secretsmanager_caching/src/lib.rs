@@ -178,12 +178,12 @@ impl SecretsManagerCachingClient {
         version_stage: Option<&str>,
         refresh_now: bool,
     ) -> Result<GetSecretValueOutputDef, Box<dyn Error>> {
-        let hit_rate = self.get_cache_hit_rate();
-        let miss_rate = 100.0 - hit_rate;
-
         if refresh_now {
             #[cfg(debug_assertions)]
             {
+                let hit_rate = self.get_cache_hit_rate();
+                let miss_rate = 100.0 - hit_rate;
+
                 self.increment_counter(&self.metrics.refreshes);
 
                 debug!(
@@ -209,6 +209,9 @@ impl SecretsManagerCachingClient {
             Ok(r) => {
                 #[cfg(debug_assertions)]
                 {
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
+
                     self.increment_counter(&self.metrics.hits);
 
                     debug!(
@@ -227,6 +230,9 @@ impl SecretsManagerCachingClient {
             Err(SecretStoreError::ResourceNotFound) => {
                 #[cfg(debug_assertions)]
                 {
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
+
                     self.increment_counter(&self.metrics.misses);
                     self.increment_counter(&self.metrics.refreshes);
 
@@ -249,6 +255,9 @@ impl SecretsManagerCachingClient {
             Err(SecretStoreError::CacheExpired(cached_value)) => {
                 #[cfg(debug_assertions)]
                 {
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
+
                     self.increment_counter(&self.metrics.refreshes);
                     self.reset_counter(&self.metrics.hits);
                     self.reset_counter(&self.metrics.misses);
