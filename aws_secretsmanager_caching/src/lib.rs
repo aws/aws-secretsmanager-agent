@@ -20,10 +20,15 @@ use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use error::is_transient_error;
 use secret_store::SecretStoreError;
 
-use log::debug;
+#[cfg(debug_assertions)]
+use log::info;
+
 use output::GetSecretValueOutputDef;
 use secret_store::{MemoryStore, SecretStore};
+
+#[cfg(debug_assertions)]
 use std::sync::atomic::{AtomicU32, Ordering};
+
 use std::{error::Error, num::NonZeroUsize, time::Duration};
 use tokio::sync::RwLock;
 use utils::CachingLibraryInterceptor;
@@ -36,10 +41,12 @@ pub struct SecretsManagerCachingClient {
     /// A store used to cache secrets.
     store: RwLock<Box<dyn SecretStore>>,
     ignore_transient_errors: bool,
+    #[cfg(debug_assertions)]
     metrics: CacheMetrics,
 }
 
 #[derive(Debug)]
+#[cfg(debug_assertions)]
 struct CacheMetrics {
     hits: AtomicU32,
     misses: AtomicU32,
@@ -84,6 +91,7 @@ impl SecretsManagerCachingClient {
             asm_client,
             store: RwLock::new(Box::new(MemoryStore::new(max_size, ttl))),
             ignore_transient_errors,
+            #[cfg(debug_assertions)]
             metrics: CacheMetrics {
                 hits: AtomicU32::new(0),
                 misses: AtomicU32::new(0),
@@ -186,7 +194,7 @@ impl SecretsManagerCachingClient {
 
                 self.increment_counter(&self.metrics.refreshes);
 
-                debug!(
+                info!(
                     "METRICS: Bypassing GSV. Refreshing secret '{}' immediately. Total refreshes: {}. \
                     Total hits: {}. Total misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%",
                     secret_id,
@@ -214,7 +222,7 @@ impl SecretsManagerCachingClient {
 
                     self.increment_counter(&self.metrics.hits);
 
-                    debug!(
+                    info!(
                         "METRICS: Cache HIT for secret '{}'. Total hits: {}. Total misses: {}. \
                         Hit rate: {:.2}%. Miss rate: {:.2}%.",
                         secret_id,
@@ -236,7 +244,7 @@ impl SecretsManagerCachingClient {
                     self.increment_counter(&self.metrics.misses);
                     self.increment_counter(&self.metrics.refreshes);
 
-                    debug!(
+                    info!(
                         "METRICS: Cache MISS for secret '{}'. Total hits: {}. Total misses: {}. \
                         Hit rate: {:.2}%. Miss rate: {:.2}%.",
                         secret_id,
@@ -262,7 +270,7 @@ impl SecretsManagerCachingClient {
                     self.reset_counter(&self.metrics.hits);
                     self.reset_counter(&self.metrics.misses);
 
-                    debug!(
+                    info!(
                         "METRICS: Cache expired. Resetting hits and misses. Total hits: {}. Total \
                         misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%.",
                         self.get_counter_value(&self.metrics.hits),
@@ -402,6 +410,7 @@ impl SecretsManagerCachingClient {
             .any(|(k, v)| k.eq(&version_id) && v.contains(&version_stage)))
     }
 
+    #[cfg(debug_assertions)]
     fn get_cache_hit_rate(&self) -> f64 {
         let hits = self.metrics.hits.load(Ordering::SeqCst);
         let misses = self.metrics.misses.load(Ordering::SeqCst);
@@ -414,14 +423,17 @@ impl SecretsManagerCachingClient {
         (hits as f64 / total as f64) * 100.0
     }
 
+    #[cfg(debug_assertions)]
     fn increment_counter(&self, counter: &AtomicU32) -> () {
         counter.fetch_add(1, Ordering::SeqCst);
     }
 
+    #[cfg(debug_assertions)]
     fn reset_counter(&self, counter: &AtomicU32) -> () {
         counter.store(0, Ordering::SeqCst);
     }
 
+    #[cfg(debug_assertions)]
     fn get_counter_value(&self, counter: &AtomicU32) -> u32 {
         counter.load(Ordering::SeqCst)
     }
