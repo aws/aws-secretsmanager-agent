@@ -85,7 +85,7 @@ pub struct Config {
     /// The port for the local HTTP server.
     http_port: u16,
 
-    /// The `time to live` of a secret
+    /// The time-to-live of a secret
     ttl: Duration,
 
     /// Maximum number secrets that can be stored in the cache.
@@ -125,12 +125,11 @@ impl Default for Config {
 impl Config {
     /// Initialize the configuation using the optional configuration file.
     ///
-    /// If and override file is not provided, default configurations will be
-    /// used.
+    /// If and override file is not provided, default configurations will be used.
     ///
     /// # Arguments
     ///
-    /// * `file_pth` - The configuration file (in toml format) used to override the default, or None to use the defaults.
+    /// * `file_path` - The configuration file (in toml format) used to override the default, or None to use the defaults.
     ///
     /// # Returns
     ///
@@ -167,7 +166,7 @@ impl Config {
         Config::build(config.build()?.try_deserialize()?)
     }
 
-    /// The level of logging the agent provides ie. debug, info, warn, error or none
+    /// The level of logging the agent provides: debug, info, warn, error or none
     ///
     /// # Returns
     ///
@@ -186,7 +185,7 @@ impl Config {
         self.log_to_file
     }
 
-    /// The port for the local HTTP server to listen for incomming requests.
+    /// The port for the local HTTP server to listen for incoming requests.
     ///
     /// # Returns
     ///
@@ -195,7 +194,7 @@ impl Config {
         self.http_port
     }
 
-    /// The `time to live` of a secret in the cache in seconds.
+    /// The time-to-live of a secret in the cache in seconds.
     ///
     /// # Returns
     ///
@@ -213,7 +212,7 @@ impl Config {
         self.cache_size
     }
 
-    /// A list of request headers which will be checked for the SSRF token (can not be empty).
+    /// A list of request headers which will be checked for the SSRF token (cannot be empty).
     ///
     /// # Returns
     ///
@@ -226,16 +225,16 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// * `ssrf_env_variables` - The name of the env variable containing the SSRF token value. Defaults to ["AWS_TOKEN", "AWS_SESSION_TOKEN", "AWS_CONTAINER_AUTHORIZATION_TOKEN"].
+    /// * `ssrf_env_variables` - The name of the env variable containing the SSRF token value. Defaults to `["AWS_TOKEN", "AWS_SESSION_TOKEN", "AWS_CONTAINER_AUTHORIZATION_TOKEN"]`.
     pub fn ssrf_env_variables(&self) -> Vec<String> {
         self.ssrf_env_variables.clone()
     }
 
-    /// The prefix for path based requests (must begin with /).
+    /// The prefix for path based requests (must begin with `/`).
     ///
     /// # Returns
     ///
-    /// * `path_prefix` - The path name prefix. Defaults to /v1/.
+    /// * `path_prefix` - The path name prefix. Defaults to `/v1/`.
     pub fn path_prefix(&self) -> String {
         self.path_prefix.clone()
     }
@@ -264,7 +263,7 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// * `ignore_transient_errors` - Whether the client should serve cached data on transient refresh errors. Defaults to "true"
+    /// * `ignore_transient_errors` - Whether the client should serve cached data on transient refresh errors. Defaults to `true`
     pub fn ignore_transient_errors(&self) -> bool {
         self.ignore_transient_errors
     }
@@ -273,7 +272,7 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// * `validate_credentials` - Whether the agent should validate AWS credentials at startup. Defaults to "true"
+    /// * `validate_credentials` - Whether the agent should validate AWS credentials at startup. Defaults to `true`
     pub fn validate_credentials(&self) -> bool {
         self.validate_credentials
     }
@@ -361,8 +360,9 @@ impl Config {
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// use std::ops::Range;
+///
 /// assert_eq!(parse_num::<u32>(&String::from("42"), "What is the qustion?", Some(1..100), None).unwrap(), 42);
 /// ```
 #[doc(hidden)]
@@ -373,7 +373,7 @@ fn parse_num<T>(
     neg_range: Option<Range<T>>,
 ) -> Result<T, Box<dyn std::error::Error>>
 where
-    T: PartialOrd + Sized + std::str::FromStr,
+    T: PartialOrd + Sized + FromStr,
 {
     let val = match str_val.parse::<T>() {
         Ok(x) => x,

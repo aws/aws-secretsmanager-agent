@@ -62,13 +62,16 @@ impl SecretsManagerCachingClient {
     /// * `max_size` - Maximum size of the store.
     /// * `ttl` - Time-to-live of the secrets in the store.
     /// * `ignore_transient_errors` - Whether the client should serve cached data on transient refresh errors
+    ///
+    /// # Example
+    ///
     /// ```rust
     /// use aws_sdk_secretsmanager::Client as SecretsManagerClient;
     /// use aws_sdk_secretsmanager::{config::Region, Config};
     /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
     /// use std::num::NonZeroUsize;
     /// use std::time::Duration;
-
+    ///
     /// let asm_client = SecretsManagerClient::from_conf(
     /// Config::builder()
     ///     .behavior_version_latest()
@@ -106,17 +109,20 @@ impl SecretsManagerCachingClient {
     ///
     /// * `max_size` - Maximum size of the store.
     /// * `ttl` - Time-to-live of the secrets in the store.
+    ///
+    /// # Example
+    ///
     /// ```rust
     /// tokio_test::block_on(async {
-    /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
-    /// use std::num::NonZeroUsize;
-    /// use std::time::Duration;
+    ///     use aws_secretsmanager_caching::SecretsManagerCachingClient;
+    ///     use std::num::NonZeroUsize;
+    ///     use std::time::Duration;
     ///
-    /// let client = SecretsManagerCachingClient::default(
-    /// NonZeroUsize::new(1000).unwrap(),
-    /// Duration::from_secs(300),
-    /// ).await.unwrap();
-    /// })
+    ///     let client = SecretsManagerCachingClient::default(
+    ///         NonZeroUsize::new(1000).unwrap(),
+    ///         Duration::from_secs(300),
+    ///     ).await.unwrap();
+    /// });
     /// ```
     pub async fn default(max_size: NonZeroUsize, ttl: Duration) -> Result<Self, SecretStoreError> {
         let default_config = &aws_config::load_defaults(BehaviorVersion::latest()).await;
@@ -135,28 +141,30 @@ impl SecretsManagerCachingClient {
     /// * `max_size` - Maximum size of the store.
     /// * `ttl` - Time-to-live of the secrets in the store.
     ///
+    /// # Example
+    ///
     /// ```rust
     /// tokio_test::block_on(async {
-    /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
-    /// use std::num::NonZeroUsize;
-    /// use std::time::Duration;
-    /// use aws_config::{BehaviorVersion, Region};
-
-    /// let config = aws_config::load_defaults(BehaviorVersion::latest())
-    /// .await
-    /// .into_builder()
-    /// .region(Region::from_static("us-west-2"))
-    /// .build();
-
-    /// let asm_builder = aws_sdk_secretsmanager::config::Builder::from(&config);
-
-    /// let client = SecretsManagerCachingClient::from_builder(
-    /// asm_builder,
-    /// NonZeroUsize::new(1000).unwrap(),
-    /// Duration::from_secs(300),
-    /// false,
-    /// )
-    /// .await.unwrap();
+    ///     use aws_secretsmanager_caching::SecretsManagerCachingClient;
+    ///     use std::num::NonZeroUsize;
+    ///     use std::time::Duration;
+    ///     use aws_config::{BehaviorVersion, Region};
+    ///
+    ///     let config = aws_config::load_defaults(BehaviorVersion::latest())
+    ///         .await
+    ///         .into_builder()
+    ///         .region(Region::from_static("us-west-2"))
+    ///         .build();
+    ///
+    ///     let asm_builder = aws_sdk_secretsmanager::config::Builder::from(&config);
+    ///
+    ///     let client = SecretsManagerCachingClient::from_builder(
+    ///         asm_builder,
+    ///         NonZeroUsize::new(1000).unwrap(),
+    ///         Duration::from_secs(300),
+    ///         false,
+    ///     )
+    ///         .await.unwrap();
     /// })
     /// ```
     pub async fn from_builder(
@@ -292,6 +300,7 @@ impl SecretsManagerCachingClient {
     /// Refreshes the secret value through a GetSecretValue call to ASM
     ///
     /// # Arguments
+    ///
     /// * `secret_id` - The ARN or name of the secret to retrieve.
     /// * `version_id` - The version id of the secret version to retrieve.
     /// * `version_stage` - The staging label of the version of the secret to retrieve.
@@ -354,11 +363,13 @@ impl SecretsManagerCachingClient {
     /// Check if the value in the cache is still fresh enough to be served again
     ///
     /// # Arguments
+    ///
     /// * `version_id` - The version id of the secret version to retrieve.
     /// * `version_stage` - The staging label of the version of the secret to retrieve. Defaults to AWSCURRENT
     /// * `cached_value` - The value currently in the cache.
     ///
     /// # Returns
+    ///
     /// * true if value can be reused, false if not
     async fn is_current(
         &self,
@@ -456,10 +467,7 @@ mod tests {
         SecretsManagerCachingClient::new(
             asm_mock::def_fake_client(http_client, endpoint_url),
             NonZeroUsize::new(1000).unwrap(),
-            match ttl {
-                Some(ttl) => ttl,
-                None => Duration::from_secs(1000),
-            },
+            ttl.unwrap_or_else(|| Duration::from_secs(1000)),
             ignore_transient_errors,
         )
         .expect("client should create")
@@ -713,9 +721,9 @@ mod tests {
             .await
             .unwrap();
 
-        if (client
+        if client
             .get_secret_value(secret_id, version_id, None, false)
-            .await)
+            .await
             .is_ok()
         {
             panic!("Expected failure")
@@ -1053,16 +1061,15 @@ mod tests {
                         .operation_attempt_timeout(Duration::from_millis(100))
                         .build(),
                 )
-                .http_client(match http_client {
-                    Some(custom_client) => custom_client,
-                    None => infallible_client_fn(|_req| {
+                .http_client(http_client.unwrap_or_else(|| {
+                    infallible_client_fn(|_req| {
                         let (code, rsp) = format_rsp(_req);
                         Response::builder()
                             .status(code)
                             .body(SdkBody::from(rsp))
                             .unwrap()
-                    }),
-                });
+                    })
+                }));
             config_builder = match endpoint_url {
                 Some(endpoint_url) => config_builder.endpoint_url(endpoint_url),
                 None => config_builder,

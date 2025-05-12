@@ -30,7 +30,7 @@ const MAX_ALLOWED_LOG_SIZE_IN_MB: u64 = 10;
 #[doc(hidden)]
 static STARTUP: Once = Once::new();
 
-/// Initializes file based logging for the daemon.
+/// Initializes logging for the daemon.
 ///
 /// # Arguments
 ///

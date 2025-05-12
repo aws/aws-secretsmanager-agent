@@ -10,35 +10,37 @@ use std::time::SystemTime;
 /// We tried to De/Serialize the remote types using <https://serde.rs/remote-derive.html> but couldn't as the remote types are non_exhaustive,
 /// which is a Rust limitation. We can remove this when aws sdk implements De/Serialize trait for the types.
 #[serde_as]
-#[derive(::std::clone::Clone, ::std::cmp::PartialEq, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase")]
 pub struct GetSecretValueOutputDef {
     /// The ARN of the secret.
     #[serde(rename(serialize = "ARN"))]
-    pub arn: std::option::Option<std::string::String>,
+    pub arn: Option<String>,
 
     /// The friendly name of the secret.
-    pub name: std::option::Option<std::string::String>,
+    pub name: Option<String>,
 
     /// The unique identifier of this version of the secret.
-    pub version_id: std::option::Option<std::string::String>,
+    pub version_id: Option<String>,
 
-    /// The decrypted secret value, if the secret value was originally provided as a string or through the Secrets Manager console.
-    /// If this secret was created by using the console, then Secrets Manager stores the information as a JSON structure of key/value pairs.
+    /// The decrypted secret value, if the secret value was originally provided as a string or
+    /// through the Secrets Manager console. If this secret was created by using the console, then
+    /// Secrets Manager stores the information as a JSON structure of key/value pairs.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub secret_string: std::option::Option<std::string::String>,
+    pub secret_string: Option<String>,
 
     /// Decrypted secret binary, if present.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub secret_binary: std::option::Option<BlobDef>,
+    pub secret_binary: Option<BlobDef>,
 
     /// A list of all of the staging labels currently attached to this version of the secret.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub version_stages: std::option::Option<std::vec::Vec<std::string::String>>,
+    pub version_stages: Option<Vec<String>>,
 
-    /// The date and time that this version of the secret was created. If you don't specify which version in <code>VersionId</code> or <code>VersionStage</code>, then Secrets Manager uses the <code>AWSCURRENT</code> version.
+    /// The date and time that this version of the secret was created. If you don't specify which
+    /// version in `VersionId` or `VersionStage`, then Secrets Manager uses the `AWSCURRENT` version.
     #[serde_as(as = "Option<TimestampSecondsWithFrac<String>>")]
-    pub created_date: std::option::Option<SystemTime>,
+    pub created_date: Option<SystemTime>,
 }
 
 impl GetSecretValueOutputDef {
@@ -106,9 +108,9 @@ pub struct DateTimeDef {
     subsecond_nanos: u32,
 }
 
-impl SerializeAs<::aws_smithy_types::DateTime> for DateTimeDef {
+impl SerializeAs<aws_smithy_types::DateTime> for DateTimeDef {
     fn serialize_as<S>(
-        source: &::aws_smithy_types::DateTime,
+        source: &aws_smithy_types::DateTime,
         serializer: S,
     ) -> Result<S::Ok, S::Error>
     where
@@ -118,8 +120,8 @@ impl SerializeAs<::aws_smithy_types::DateTime> for DateTimeDef {
     }
 }
 
-impl<'de> DeserializeAs<'de, ::aws_smithy_types::DateTime> for DateTimeDef {
-    fn deserialize_as<D>(deserializer: D) -> Result<::aws_smithy_types::DateTime, D::Error>
+impl<'de> DeserializeAs<'de, aws_smithy_types::DateTime> for DateTimeDef {
+    fn deserialize_as<D>(deserializer: D) -> Result<aws_smithy_types::DateTime, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -127,8 +129,8 @@ impl<'de> DeserializeAs<'de, ::aws_smithy_types::DateTime> for DateTimeDef {
     }
 }
 
-impl From<DateTimeDef> for ::aws_smithy_types::DateTime {
-    fn from(def: DateTimeDef) -> ::aws_smithy_types::DateTime {
-        ::aws_smithy_types::DateTime::from_secs_and_nanos(def.seconds, def.subsecond_nanos)
+impl From<DateTimeDef> for aws_smithy_types::DateTime {
+    fn from(def: DateTimeDef) -> aws_smithy_types::DateTime {
+        aws_smithy_types::DateTime::from_secs_and_nanos(def.seconds, def.subsecond_nanos)
     }
 }

@@ -9,7 +9,8 @@ use std::fs;
 use std::time::Duration;
 
 #[cfg(not(test))]
-use std::env::var; // Use the real std::env::var
+// Use the real std::env::var
+use std::env::var;
 #[cfg(test)]
 use tests::var_test as var;
 
@@ -30,7 +31,7 @@ use tests::var_test as var;
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// assert_eq!(err_response("InternalFailure", ""), "{\"__type\":\"InternalFailure\"}");
 /// assert_eq!(
 ///     err_response("ResourceNotFoundException", "Secrets Manager can't find the specified secret."),
@@ -94,7 +95,7 @@ pub use time_out_test as time_out;
 ///
 /// # Returns
 ///
-/// * `Durration` - How long to wait before canceling the operation.
+/// * `Duration` - How long to wait before canceling the operation.
 #[doc(hidden)]
 pub fn time_out_impl() -> Duration {
     Duration::from_secs(MAX_REQ_TIME_SEC)
@@ -201,7 +202,7 @@ pub mod tests {
 
             // Cleanup temp files.
             if let Some(name) = self.file {
-                let _ = std::fs::remove_file(name);
+                let _ = fs::remove_file(name);
             }
         }
     }
@@ -273,7 +274,7 @@ pub mod tests {
         let _cleanup = CleanUp {
             file: Some(&tmpfile),
         };
-        std::fs::write(&tmpfile, token).expect("could not write");
+        fs::write(&tmpfile, token).expect("could not write");
         let file = Box::new(format!("file://{tmpfile}"));
         set_test_var("AWS_TOKEN", Box::leak(file));
         let cfg = Config::new(None).expect("config failed");
@@ -318,7 +319,7 @@ pub mod tests {
             file: Some(&tmpfile),
         };
         set_test_var("", "");
-        std::fs::write(&tmpfile, "ssrf_env_variables = [\"NOSUCHENV\"]").expect("could not write");
+        fs::write(&tmpfile, "ssrf_env_variables = [\"NOSUCHENV\"]").expect("could not write");
         let cfg = Config::new(Some(&tmpfile)).expect("config failed");
         assert!(get_token(&cfg)
             .err()
