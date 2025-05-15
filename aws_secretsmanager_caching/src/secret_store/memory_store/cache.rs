@@ -30,8 +30,8 @@ impl<K: Hash + Eq, V> Cache<K, V> {
     }
 
     /// Inserts a key into the cache.
-    ///  If the key already exists, it overwrites it
-    ///  If the insert results in too many keys in the cache, the oldest updated entry is removed.
+    /// If the key already exists, it overwrites it
+    /// If the insert results in too many keys in the cache, the oldest updated entry is removed.
     pub fn insert(&mut self, key: K, val: V) {
         self.entries.insert(key, val);
         if self.len() > self.max_size.get() {
@@ -94,12 +94,12 @@ mod tests {
         cache.insert("test3".to_string(), 3);
         cache.insert("test4".to_string(), 4);
         assert_eq!(cache.len(), 4);
-        let items: Vec<usize> = cache.entries.iter().map(|t| (*t.1)).collect();
+        let items: Vec<usize> = cache.entries.iter().map(|t| *t.1).collect();
         assert_eq!(items, [1, 2, 3, 4]);
 
         cache.insert("test5".to_string(), 5);
         assert_eq!(cache.len(), 4);
-        let items: Vec<usize> = cache.entries.iter().map(|t| (*t.1)).collect();
+        let items: Vec<usize> = cache.entries.iter().map(|t| *t.1).collect();
         assert_eq!(items, [2, 3, 4, 5]);
     }
 
@@ -110,7 +110,7 @@ mod tests {
         cache.insert("test1".to_string(), 1);
         cache.insert("test1".to_string(), 2);
         assert_eq!(cache.len(), 1);
-        let items: Vec<usize> = cache.entries.iter().map(|t| (*t.1)).collect();
+        let items: Vec<usize> = cache.entries.iter().map(|t| *t.1).collect();
         assert_eq!(items, [2]);
     }
 }
