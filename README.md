@@ -301,7 +301,7 @@ The Secrets Manager Agent uses the AWS SDK for Rust, which uses the [https://doc
 + `secretsmanager:DescribeSecret`
 + `secretsmanager:GetSecretValue`
 
-For more information, see [Permissions reference](reference_iam-permissions.md)\.
+For more information, see [Permissions reference](https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_iam-policies.html)\.
 
 **Important**  
 After the secret value is pulled into the Secrets Manager Agent, any user with access to the compute environment and SSRF token can access the secret from the Secrets Manager Agent cache\. For more information, see [Security considerations](#secrets-manager-agent-security)\.
