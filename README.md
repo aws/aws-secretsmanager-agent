@@ -2,7 +2,7 @@
 
 The AWS Secrets Manager Agent is a client\-side HTTP service that you can use to standardize consumption of secrets from Secrets Manager across environments such as AWS Lambda, Amazon Elastic Container Service, Amazon Elastic Kubernetes Service, and Amazon Elastic Compute Cloud\. The Secrets Manager Agent can retrieve and cache secrets in memory so that your applications can consume secrets directly from the cache\. That means you can fetch the secrets your application needs from the localhost instead of making calls to Secrets Manager\. The Secrets Manager Agent can only make read requests to Secrets Manager \- it can't modify secrets\. 
 
-The Secrets Manager Agent uses the AWS credentials you provide in your environment to make calls to Secrets Manager\. The Secrets Manager Agent offers protection against Server Side Request Forgery \(SSRF\) to help improve secret security\. You can configure the Secrets Manager Agent by setting the maximum number of connections, the time to live \(TTL\), the localhost HTTP port, and the cache size\. 
+The Secrets Manager Agent uses the AWS credentials you provide in your environment to make calls to Secrets Manager\. The Secrets Manager Agent offers protection against Server Side Request Forgery \(SSRF\) to help improve secret security\. The Agent also uses the post-quantum ML-KEM key exchange as the highest-priority key exchange by default\. You can configure the Secrets Manager Agent by setting the maximum number of connections, the time to live \(TTL\), the localhost HTTP port, and the cache size\.
 
 Because the Secrets Manager Agent uses an in\-memory cache, it resets when the Secrets Manager Agent restarts\. The Secrets Manager Agent periodically refreshes the cached secret value\. The refresh happens when you try to read a secret from the Secrets Manager Agent after the TTL has expired\. The default refresh frequency \(TTL\) is 300 seconds, and you can change it by using a [Configuration file](#secrets-manager-agent-config) which you pass to the Secrets Manager Agent using the `--config` command line argument\. The Secrets Manager Agent does not include cache invalidation\. For example, if a secret rotates before the cache entry expires, the Secrets Manager Agent might return a stale secret value\. 
 
@@ -25,7 +25,13 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
   - [Step 3: Retrieve secrets with the Secrets Manager Agent](#step-3-retrieve-secrets-with-the-secrets-manager-agent)
       - [\[ curl \]](#-curl-)
       - [\[ Python \]](#-python-)
+  - [`refreshNow` parameter behavior](#refreshnow-parameter-behavior)
+  - [Using the refreshNow parameter](#using-the-refreshnow-parameter)
+    - [Example - Secrets Manager Agent GET request with refreshNow parameter](#example---secrets-manager-agent-get-request-with-refreshnow-parameter)
+      - [\[ curl \]](#-curl--1)
+      - [\[ Python \]](#-python--1)
   - [Configure the Secrets Manager Agent](#configure-the-secrets-manager-agent)
+  - [Optional features](#optional-features)
   - [Logging](#logging)
   - [Security considerations](#security-considerations)
 
@@ -34,6 +40,11 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
 To build the Secrets Manager Agent binary natively, you need the standard development tools and the Rust tools\. Alternatively, you can cross\-compile for systems that support it, or you can use Rust cross to cross\-compile\.
 
 ------
+
+**NOTE:** Building the agent with the `fips` feature enabled on macOS currently requires the following workaround:
+
+- Create an environment variable called `SDKROOT` which is set to the result of running `xcrun --show-sdk-path`
+
 #### [ RPM\-based systems ]
 
 1. On RPM\-based systems such as AL2023, you can install the development tools by using the Development Tools group\.
@@ -290,7 +301,7 @@ The Secrets Manager Agent uses the AWS SDK for Rust, which uses the [https://doc
 + `secretsmanager:DescribeSecret`
 + `secretsmanager:GetSecretValue`
 
-For more information, see [Permissions reference](reference_iam-permissions.md)\.
+For more information, see [Permissions reference](https://docs.aws.amazon.com/secretsmanager/latest/userguide/auth-and-access_iam-policies.html)\.
 
 **Important**  
 After the secret value is pulled into the Secrets Manager Agent, any user with access to the compute environment and SSRF token can access the secret from the Secrets Manager Agent cache\. For more information, see [Security considerations](#secrets-manager-agent-security)\.
@@ -442,6 +453,7 @@ To change the configuration of the Secrets Manager Agent, create a [TOML](https:
 
 The following list shows the options you can configure for the Secrets Manager Agent\.
 + **log\_level** – The level of detail reported in logs for the Secrets Manager Agent: DEBUG, INFO, WARN, ERROR, or NONE\. The default is INFO\.
++ **log\_to\_file** - Whether to log to a file or stdout/stderr: `true` or `false`. The default is `true`.
 + **http\_port** – The port for the local HTTP server, in the range 1024 to 65535\. The default is 2773\.
 + **region** – The AWS Region to use for requests\. If no Region is specified, the Secrets Manager Agent determines the Region from the SDK\. For more information, see [Specify your credentials and default Region](https://docs.aws.amazon.com/sdk-for-rust/latest/dg/credentials.html) in the *AWS SDK for Rust Developer Guide*\.
 + **ttl\_seconds** – The TTL in seconds for the cached items, in the range 0 to 3600\. The default is 300\. 0 indicates that there is no caching\.
@@ -451,9 +463,14 @@ The following list shows the options you can configure for the Secrets Manager A
 + **path\_prefix** – The URI prefix used to determine if the request is a path based request\. The default is "/v1/"\.
 + **max\_conn** – The maximum number of connections from HTTP clients that the Secrets Manager Agent allows, in the range 1 to 1000\. The default is 800\.
 
+## Optional features<a name="secrets-manager-agent-features"></a>
+
+The Secrets Manager Agent can be built with optional features by passing the `--features` flag to `cargo build`. The available features are:
+* `fips`: restricts the cipher suites used by the agent to only FIPS-approved ciphers
+
 ## Logging<a name="secrets-manager-agent-log"></a>
 
-The Secrets Manager Agent logs errors locally to the file `logs/secrets_manager_agent.log`\. When your application calls the Secrets Manager Agent to get a secret, those calls appear in the local log\. They do not appear in the CloudTrail logs\. 
+The Secrets Manager Agent logs errors locally to the file `logs/secrets_manager_agent.log` or to stdout/stderr depending on the `log_to_file` config variable\. When your application calls the Secrets Manager Agent to get a secret, those calls appear in the local log\. They do not appear in the CloudTrail logs\. 
 
 The Secrets Manager Agent creates a new log file when the file reaches 10 MB, and it stores up to five log files total\. 
 

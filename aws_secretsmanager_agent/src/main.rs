@@ -152,7 +152,7 @@ async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
     };
 
     // Initialize logging
-    if let Err(msg) = init_logger(config.log_level()) {
+    if let Err(msg) = init_logger(config.log_level(), config.log_to_file()) {
         err_exit(&msg.to_string(), "");
     }
 
@@ -233,7 +233,8 @@ mod tests {
     use tokio::task::JoinSet;
     use tokio::time::timeout;
     #[cfg(unix)]
-    use utils::tests::set_test_var; // set_test_var does not work across threads (e.g. run_request)
+    // set_test_var does not work across threads (e.g. run_request)
+    use utils::tests::set_test_var;
     use utils::tests::{tmpfile_name, CleanUp};
 
     fn one_shot() -> bool {

@@ -175,11 +175,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws-lc-fips-sys"
+version = "0.13.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2608e5a7965cc9d58c56234d346c9c89b824c4c8652b6f047b3bd0a777c0644f"
+dependencies = [
+ "bindgen",
+ "cc",
+ "cmake",
+ "dunce",
+ "fs_extra",
+ "regex",
+]
+
+[[package]]
 name = "aws-lc-rs"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fcc8f365936c834db5514fc45aee5b1202d677e6b40e48468aaaa8183ca8c7"
 dependencies = [
+ "aws-lc-fips-sys",
  "aws-lc-sys",
  "zeroize",
 ]
@@ -549,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "aws_secretsmanager_agent"
-version = "1.0.1"
+version = "2.0.0"
 dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
@@ -576,7 +591,7 @@ dependencies = [
 
 [[package]]
 name = "aws_secretsmanager_caching"
-version = "1.0.1"
+version = "2.0.0"
 dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
@@ -586,6 +601,8 @@ dependencies = [
  "aws-smithy-types",
  "http 0.2.12",
  "linked-hash-map",
+ "log",
+ "rustls 0.23.27",
  "serde",
  "serde_json",
  "serde_with",
@@ -2331,6 +2348,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "730944ca083c1c233a75c09f199e973ca499344a2b7ba9e755c457e86fb4a321"
 dependencies = [
  "aws-lc-rs",
+ "log",
  "once_cell",
  "rustls-pki-types",
  "rustls-webpki 0.103.3",

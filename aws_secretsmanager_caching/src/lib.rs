@@ -20,8 +20,15 @@ use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use error::is_transient_error;
 use secret_store::SecretStoreError;
 
+#[cfg(debug_assertions)]
+use log::info;
+
 use output::GetSecretValueOutputDef;
 use secret_store::{MemoryStore, SecretStore};
+
+#[cfg(debug_assertions)]
+use std::sync::atomic::{AtomicU32, Ordering};
+
 use std::{error::Error, num::NonZeroUsize, time::Duration};
 use tokio::sync::RwLock;
 use utils::CachingLibraryInterceptor;
@@ -34,6 +41,16 @@ pub struct SecretsManagerCachingClient {
     /// A store used to cache secrets.
     store: RwLock<Box<dyn SecretStore>>,
     ignore_transient_errors: bool,
+    #[cfg(debug_assertions)]
+    metrics: CacheMetrics,
+}
+
+#[derive(Debug)]
+#[cfg(debug_assertions)]
+struct CacheMetrics {
+    hits: AtomicU32,
+    misses: AtomicU32,
+    refreshes: AtomicU32,
 }
 
 impl SecretsManagerCachingClient {
@@ -74,6 +91,12 @@ impl SecretsManagerCachingClient {
             asm_client,
             store: RwLock::new(Box::new(MemoryStore::new(max_size, ttl))),
             ignore_transient_errors,
+            #[cfg(debug_assertions)]
+            metrics: CacheMetrics {
+                hits: AtomicU32::new(0),
+                misses: AtomicU32::new(0),
+                refreshes: AtomicU32::new(0),
+            },
         })
     }
 
@@ -164,6 +187,25 @@ impl SecretsManagerCachingClient {
         refresh_now: bool,
     ) -> Result<GetSecretValueOutputDef, Box<dyn Error>> {
         if refresh_now {
+            #[cfg(debug_assertions)]
+            {
+                let hit_rate = self.get_cache_hit_rate();
+                let miss_rate = 100.0 - hit_rate;
+
+                self.increment_counter(&self.metrics.refreshes);
+
+                info!(
+                    "METRICS: Bypassing GSV. Refreshing secret '{}' immediately. Total refreshes: {}. \
+                    Total hits: {}. Total misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%",
+                    secret_id,
+                    self.get_counter_value(&self.metrics.refreshes),
+                    self.get_counter_value(&self.metrics.hits),
+                    self.get_counter_value(&self.metrics.misses),
+                    hit_rate,
+                    miss_rate
+                );
+            }
+
             return Ok(self
                 .refresh_secret_value(secret_id, version_id, version_stage, None)
                 .await?);
@@ -172,14 +214,72 @@ impl SecretsManagerCachingClient {
         let read_lock = self.store.read().await;
 
         match read_lock.get_secret_value(secret_id, version_id, version_stage) {
-            Ok(r) => Ok(r),
+            Ok(r) => {
+                #[cfg(debug_assertions)]
+                {
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
+
+                    self.increment_counter(&self.metrics.hits);
+
+                    info!(
+                        "METRICS: Cache HIT for secret '{}'. Total hits: {}. Total misses: {}. \
+                        Hit rate: {:.2}%. Miss rate: {:.2}%.",
+                        secret_id,
+                        self.get_counter_value(&self.metrics.hits),
+                        self.get_counter_value(&self.metrics.misses),
+                        hit_rate,
+                        miss_rate
+                    );
+                }
+
+                Ok(r)
+            }
             Err(SecretStoreError::ResourceNotFound) => {
+                #[cfg(debug_assertions)]
+                {
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
+
+                    self.increment_counter(&self.metrics.misses);
+                    self.increment_counter(&self.metrics.refreshes);
+
+                    info!(
+                        "METRICS: Cache MISS for secret '{}'. Total hits: {}. Total misses: {}. \
+                        Hit rate: {:.2}%. Miss rate: {:.2}%.",
+                        secret_id,
+                        self.get_counter_value(&self.metrics.hits),
+                        self.get_counter_value(&self.metrics.misses),
+                        hit_rate,
+                        miss_rate
+                    );
+                }
+
                 drop(read_lock);
                 Ok(self
                     .refresh_secret_value(secret_id, version_id, version_stage, None)
                     .await?)
             }
             Err(SecretStoreError::CacheExpired(cached_value)) => {
+                #[cfg(debug_assertions)]
+                {
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
+
+                    self.increment_counter(&self.metrics.refreshes);
+                    self.reset_counter(&self.metrics.hits);
+                    self.reset_counter(&self.metrics.misses);
+
+                    info!(
+                        "METRICS: Cache expired. Resetting hits and misses. Total hits: {}. Total \
+                        misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%.",
+                        self.get_counter_value(&self.metrics.hits),
+                        self.get_counter_value(&self.metrics.misses),
+                        hit_rate,
+                        miss_rate
+                    );
+                }
+
                 drop(read_lock);
                 Ok(self
                     .refresh_secret_value(secret_id, version_id, version_stage, Some(cached_value))
@@ -308,6 +408,34 @@ impl SecretsManagerCachingClient {
         Ok(real_vids_to_stages
             .iter()
             .any(|(k, v)| k.eq(&version_id) && v.contains(&version_stage)))
+    }
+
+    #[cfg(debug_assertions)]
+    fn get_cache_hit_rate(&self) -> f64 {
+        let hits = self.metrics.hits.load(Ordering::SeqCst);
+        let misses = self.metrics.misses.load(Ordering::SeqCst);
+        let total = hits + misses;
+
+        if total == 0 {
+            return 0.0;
+        }
+
+        (hits as f64 / total as f64) * 100.0
+    }
+
+    #[cfg(debug_assertions)]
+    fn increment_counter(&self, counter: &AtomicU32) -> () {
+        counter.fetch_add(1, Ordering::SeqCst);
+    }
+
+    #[cfg(debug_assertions)]
+    fn reset_counter(&self, counter: &AtomicU32) -> () {
+        counter.store(0, Ordering::SeqCst);
+    }
+
+    #[cfg(debug_assertions)]
+    fn get_counter_value(&self, counter: &AtomicU32) -> u32 {
+        counter.load(Ordering::SeqCst)
     }
 }
 
