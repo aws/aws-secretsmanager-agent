@@ -98,7 +98,7 @@ mod tests {
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, false);
+        assert!(!query.refresh_now);
     }
 
     #[test]
@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, true);
+        assert!(query.refresh_now);
     }
 
     #[test]
@@ -128,7 +128,7 @@ mod tests {
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, false);
+        assert!(!query.refresh_now);
     }
 
     #[test]
@@ -160,7 +160,7 @@ mod tests {
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, false);
+        assert!(!query.refresh_now);
     }
 
     #[test]

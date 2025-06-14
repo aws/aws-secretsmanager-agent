@@ -13,7 +13,7 @@ pub const EMPTY_ENV_LIST_MSG: &str =
 pub const BAD_PREFIX_MSG: &str =
     "The path prefix specified in the configuration file must begin with /.";
 
-/// Other constants that are used across the code base.
+// Other constants that are used across the code base.
 
 // The application name.
 pub const APPNAME: &str = "aws-secrets-manager-agent";
