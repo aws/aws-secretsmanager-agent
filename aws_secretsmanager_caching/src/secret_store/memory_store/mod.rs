@@ -97,7 +97,6 @@ impl SecretStore for MemoryStore {
 }
 
 /// Write the secret value to the store
-
 #[cfg(test)]
 mod tests {
 

@@ -206,9 +206,9 @@ impl SecretsManagerCachingClient {
                 );
             }
 
-            return Ok(self
+            return self
                 .refresh_secret_value(secret_id, version_id, version_stage, None)
-                .await);
+                .await;
         }
 
         let read_lock = self.store.read().await;
@@ -424,12 +424,12 @@ impl SecretsManagerCachingClient {
     }
 
     #[cfg(debug_assertions)]
-    fn increment_counter(&self, counter: &AtomicU32) -> () {
+    fn increment_counter(&self, counter: &AtomicU32) {
         counter.fetch_add(1, Ordering::SeqCst);
     }
 
     #[cfg(debug_assertions)]
-    fn reset_counter(&self, counter: &AtomicU32) -> () {
+    fn reset_counter(&self, counter: &AtomicU32) {
         counter.store(0, Ordering::SeqCst);
     }
 
