@@ -40,9 +40,9 @@ jobs:
         with:
           go-version: "stable"
       - name: Check licenses
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check licenses
+        run: |
+          cargo install cargo-deny
+          cargo-deny check licenses
       - name: Build
         run: cargo build --verbose
       - name: Run tests
