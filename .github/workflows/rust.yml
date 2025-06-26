@@ -39,6 +39,10 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "stable"
+      - name: Check licenses
+        run: |
+          cargo install cargo-deny
+          cargo-deny check licenses
       - name: Build
         run: cargo build --verbose
       - name: Run tests
