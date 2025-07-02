@@ -744,7 +744,7 @@ mod tests {
     #[tokio::test]
     async fn path_refresh_success() {
         let req = "/v1/My/Test?versionStage=AWSPENDING&refreshNow=0";
-        let (status, body) = run_request(&req).await;
+        let (status, body) = run_request(req).await;
         assert_eq!(status, StatusCode::OK);
         validate_response_extra("My/Test", DEFAULT_VERSION, vec!["AWSPENDING"], body);
     }
