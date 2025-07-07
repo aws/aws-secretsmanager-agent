@@ -5,6 +5,7 @@ use hyper::service::service_fn;
 use hyper::{body::Incoming as IncomingBody, Method, Request, Response};
 use hyper_util::rt::TokioIo;
 use log::error;
+use mime::Mime;
 use tokio::net::TcpListener;
 use tokio::time::timeout;
 
@@ -31,14 +32,7 @@ pub struct Server {
 #[derive(Debug)]
 struct ResponseContent {
     rsp_body: String,
-    content_type: ContentType,
-}
-
-/// Used to set Content-Type header
-#[derive(Debug)]
-enum ContentType {
-    Plain,
-    Json,
+    content_type: Mime,
 }
 
 /// Handle incoming HTTP requests.
@@ -126,13 +120,7 @@ impl Server {
                 rsp_body,
                 content_type,
             }) => Ok(Response::builder()
-                .header(
-                    "Content-Type",
-                    match content_type {
-                        ContentType::Plain => "text/plain",
-                        ContentType::Json => "application/json",
-                    },
-                )
+                .header("Content-Type", content_type.essence_str())
                 .body(Full::new(Bytes::from(rsp_body)))
                 .unwrap()),
             Err(e) => Ok(Response::builder()
@@ -167,7 +155,7 @@ impl Server {
         match req.uri().path() {
             "/ping" => Ok(ResponseContent {
                 rsp_body: "healthy".into(),
-                content_type: ContentType::Plain,
+                content_type: mime::TEXT_PLAIN,
             }), // Standard health check
 
             // Lambda extension style query
@@ -183,7 +171,7 @@ impl Server {
                             qry.refresh_now,
                         )
                         .await?,
-                    content_type: ContentType::Json,
+                    content_type: mime::APPLICATION_JSON,
                 })
             }
 
@@ -200,7 +188,7 @@ impl Server {
                             qry.refresh_now,
                         )
                         .await?,
-                    content_type: ContentType::Json,
+                    content_type: mime::APPLICATION_JSON,
                 })
             }
             _ => Err(HttpError(404, "Not found".into())),
