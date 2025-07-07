@@ -104,10 +104,7 @@ pub fn init_logger(
         return Err(Box::new(err));
     }
 
-    info!(
-        "{} logger initialized with `{:?}` log level.",
-        logger_type, log_level
-    );
+    info!("{logger_type} logger initialized with `{log_level:?}` log level.");
 
     Ok(())
 }

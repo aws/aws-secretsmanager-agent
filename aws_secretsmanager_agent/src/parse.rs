@@ -25,7 +25,7 @@ impl GSVQuery {
 
     pub(crate) fn try_from_query(s: &str) -> Result<Self, HttpError> {
         // url library can only parse complete URIs. The host/port/scheme used is irrelevant since it is not used
-        let complete_uri = format!("http://localhost{}", s);
+        let complete_uri = format!("http://localhost{s}");
 
         let url = Url::parse(&complete_uri)?;
 
@@ -42,7 +42,7 @@ impl GSVQuery {
                 "versionId" => query.version_id = Some(v.into()),
                 "versionStage" => query.version_stage = Some(v.into()),
                 "refreshNow" => query.refresh_now = GSVQuery::parse_refresh_value(&v)?,
-                p => return Err(HttpError(400, format!("unknown parameter: {}", p))),
+                p => return Err(HttpError(400, format!("unknown parameter: {p}"))),
             }
         }
 
@@ -55,7 +55,7 @@ impl GSVQuery {
 
     pub(crate) fn try_from_path_query(s: &str, path_prefix: &str) -> Result<Self, HttpError> {
         // url library can only parse complete URIs. The host/port/scheme used is irrelevant since it gets stripped
-        let complete_uri = format!("http://localhost{}", s);
+        let complete_uri = format!("http://localhost{s}");
 
         let url = Url::parse(&complete_uri)?;
 
@@ -76,7 +76,7 @@ impl GSVQuery {
                 "versionId" => query.version_id = Some(v.into()),
                 "versionStage" => query.version_stage = Some(v.into()),
                 "refreshNow" => query.refresh_now = GSVQuery::parse_refresh_value(&v)?,
-                p => return Err(HttpError(400, format!("unknown parameter: {}", p))),
+                p => return Err(HttpError(400, format!("unknown parameter: {p}"))),
             }
         }
 
@@ -92,13 +92,12 @@ mod tests {
     fn parse_query() {
         let secret_id = "MyTest".to_owned();
         let query =
-            GSVQuery::try_from_query(&format!("/secretsmanager/get?secretId={}", secret_id))
-                .unwrap();
+            GSVQuery::try_from_query(&format!("/secretsmanager/get?secretId={secret_id}")).unwrap();
 
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, false);
+        assert!(!query.refresh_now);
     }
 
     #[test]
@@ -113,7 +112,7 @@ mod tests {
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, true);
+        assert!(query.refresh_now);
     }
 
     #[test]
@@ -128,7 +127,7 @@ mod tests {
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, false);
+        assert!(!query.refresh_now);
     }
 
     #[test]
@@ -137,8 +136,7 @@ mod tests {
         let version_id = "myversion".to_owned();
         let version_stage = "dev".to_owned();
         match GSVQuery::try_from_query(&format!(
-            "/secretsmanager/get?secretId={}&versionId={}&versionStage={}&refreshNow=123",
-            secret_id, version_id, version_stage
+            "/secretsmanager/get?secretId={secret_id}&versionId={version_id}&versionStage={version_stage}&refreshNow=123"
         )) {
             Ok(_) => panic!("should not parse"),
             Err(e) => {
@@ -160,7 +158,7 @@ mod tests {
         assert_eq!(query.secret_id, secret_id);
         assert_eq!(query.version_id, None);
         assert_eq!(query.version_stage, None);
-        assert_eq!(query.refresh_now, false);
+        assert!(!query.refresh_now);
     }
 
     #[test]
@@ -172,8 +170,7 @@ mod tests {
 
         let query = GSVQuery::try_from_path_query(
             &format!(
-                "{}{}?versionId={}&versionStage={}",
-                path_prefix, secret_id, version_id, version_stage
+                "{path_prefix}{secret_id}?versionId={version_id}&versionStage={version_stage}"
             ),
             path_prefix,
         )
@@ -190,8 +187,7 @@ mod tests {
         let version_id = "myversion".to_owned();
         let version_stage = "dev".to_owned();
         match GSVQuery::try_from_query(&format!(
-            "/secretsmanager/get?secretId={}&versionId={}&versionStage={}&abc=123",
-            secret_id, version_id, version_stage
+            "/secretsmanager/get?secretId={secret_id}&versionId={version_id}&versionStage={version_stage}&abc=123"
         )) {
             Ok(_) => panic!("should not parse"),
             Err(e) => {
@@ -210,8 +206,7 @@ mod tests {
 
         match GSVQuery::try_from_path_query(
             &format!(
-                "{}{}?versionId={}&versionStage={}&abc=123",
-                path_prefix, secret_id, version_id, version_stage
+                "{path_prefix}{secret_id}?versionId={version_id}&versionStage={version_stage}&abc=123"
             ),
             path_prefix,
         ) {
@@ -228,8 +223,7 @@ mod tests {
         let version_id = "myversion".to_owned();
         let version_stage = "dev".to_owned();
         match GSVQuery::try_from_query(&format!(
-            "/secretsmanager/get?&versionId={}&versionStage={}",
-            version_id, version_stage
+            "/secretsmanager/get?&versionId={version_id}&versionStage={version_stage}"
         )) {
             Ok(_) => panic!("should not parse"),
             Err(e) => {
@@ -246,10 +240,7 @@ mod tests {
         let path_prefix = "/v1/";
 
         match GSVQuery::try_from_path_query(
-            &format!(
-                "{}?versionId={}&versionStage={}&abc=123",
-                path_prefix, version_id, version_stage
-            ),
+            &format!("{path_prefix}?versionId={version_id}&versionStage={version_stage}&abc=123"),
             path_prefix,
         ) {
             Ok(_) => panic!("should not parse"),

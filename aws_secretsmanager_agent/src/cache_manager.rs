@@ -84,7 +84,7 @@ impl CacheManager {
                 return Err(HttpError(status, err_response(&code, &msg)));
             }
             Err(e) => {
-                error!("Internal error for {secret_id} - {:?}", e);
+                error!("Internal error for {secret_id} - {e:?}");
                 return Err(int_err());
             }
         };

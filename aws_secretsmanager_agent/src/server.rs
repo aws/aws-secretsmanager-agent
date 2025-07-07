@@ -5,6 +5,7 @@ use hyper::service::service_fn;
 use hyper::{body::Incoming as IncomingBody, Method, Request, Response};
 use hyper_util::rt::TokioIo;
 use log::error;
+use mime::Mime;
 use tokio::net::TcpListener;
 use tokio::time::timeout;
 
@@ -25,6 +26,13 @@ pub struct Server {
     ssrf_headers: Arc<Vec<String>>,
     path_prefix: Arc<String>,
     max_conn: usize,
+}
+
+/// HTTP response relevant fields
+#[derive(Debug)]
+struct ResponseContent {
+    rsp_body: String,
+    content_type: Mime,
 }
 
 /// Handle incoming HTTP requests.
@@ -80,7 +88,7 @@ impl Server {
             let mut http = http1::Builder::new();
             let http = http.max_buf_size(MAX_BUF_BYTES);
             if let Err(err) = timeout(time_out(), http.serve_connection(io, svc_fn)).await {
-                error!("Failed to serve connection: {:?}", err);
+                error!("Failed to serve connection: {err:?}");
             };
         });
 
@@ -108,11 +116,16 @@ impl Server {
 
         // Format the response.
         match result {
-            Ok(rsp_body) => Ok(Response::builder()
+            Ok(ResponseContent {
+                rsp_body,
+                content_type,
+            }) => Ok(Response::builder()
+                .header("Content-Type", content_type.essence_str())
                 .body(Full::new(Bytes::from(rsp_body)))
                 .unwrap()),
             Err(e) => Ok(Response::builder()
                 .status(e.0)
+                .header("Content-Type", "text/plain")
                 .body(Full::new(Bytes::from(e.1)))
                 .unwrap()),
         }
@@ -134,40 +147,49 @@ impl Server {
         &self,
         req: &Request<IncomingBody>,
         count: usize,
-    ) -> Result<String, HttpError> {
+    ) -> Result<ResponseContent, HttpError> {
         self.validate_max_conn(req, count)?; // Verify connection limits are not exceeded
         self.validate_token(req)?; // Check for a valid SSRF token
         self.validate_method(req)?; // Allow only GET requests
 
         match req.uri().path() {
-            "/ping" => Ok("healthy".into()), // Standard health check
+            "/ping" => Ok(ResponseContent {
+                rsp_body: "healthy".into(),
+                content_type: mime::TEXT_PLAIN,
+            }), // Standard health check
 
             // Lambda extension style query
             "/secretsmanager/get" => {
                 let qry = GSVQuery::try_from_query(&req.uri().to_string())?;
-                Ok(self
-                    .cache_mgr
-                    .fetch(
-                        &qry.secret_id,
-                        qry.version_id.as_deref(),
-                        qry.version_stage.as_deref(),
-                        qry.refresh_now,
-                    )
-                    .await?)
+                Ok(ResponseContent {
+                    rsp_body: self
+                        .cache_mgr
+                        .fetch(
+                            &qry.secret_id,
+                            qry.version_id.as_deref(),
+                            qry.version_stage.as_deref(),
+                            qry.refresh_now,
+                        )
+                        .await?,
+                    content_type: mime::APPLICATION_JSON,
+                })
             }
 
             // Path style request
             path if path.starts_with(self.path_prefix.as_str()) => {
                 let qry = GSVQuery::try_from_path_query(&req.uri().to_string(), &self.path_prefix)?;
-                Ok(self
-                    .cache_mgr
-                    .fetch(
-                        &qry.secret_id,
-                        qry.version_id.as_deref(),
-                        qry.version_stage.as_deref(),
-                        qry.refresh_now,
-                    )
-                    .await?)
+                Ok(ResponseContent {
+                    rsp_body: self
+                        .cache_mgr
+                        .fetch(
+                            &qry.secret_id,
+                            qry.version_id.as_deref(),
+                            qry.version_stage.as_deref(),
+                            qry.refresh_now,
+                        )
+                        .await?,
+                    content_type: mime::APPLICATION_JSON,
+                })
             }
             _ => Err(HttpError(404, "Not found".into())),
         }

@@ -102,7 +102,7 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
     loop {
         // Report errors on accept.
         if let Err(msg) = svr.serve_request().await {
-            error!("Could not accept connection: {:?}", msg);
+            error!("Could not accept connection: {msg:?}");
         }
 
         // Check for end of test in unit tests.
@@ -169,7 +169,7 @@ async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
     // Bind the listener to the specified port
     let addr: SocketAddr = ([127, 0, 0, 1], config.http_port()).into();
     let listener: TcpListener = TcpListener::bind(addr).await.unwrap_or_else(|err| {
-        let msg = format!("Could not bind to {addr}: {}", err);
+        let msg = format!("Could not bind to {addr}: {err}");
         error!("{msg}");
         err_exit(&msg, "")
     });
@@ -335,7 +335,7 @@ mod tests {
             // spawn a task to poll the connection and drive the HTTP state
             tokio::spawn(async move {
                 if let Err(e) = conn.await {
-                    panic!("Error in connection: {}", e);
+                    panic!("Error in connection: {e}");
                 }
             });
 
@@ -400,7 +400,7 @@ mod tests {
         // Make sure everything shutdown cleanly.
         tx_lock.send(true).expect("could not sync"); // Tell the server to shut down.
         if let Err(msg) = thr.join() {
-            panic!("server failed: {:?}", msg);
+            panic!("server failed: {msg:?}");
         }
 
         // Return the responses in the original request order and strip out the index.
@@ -744,7 +744,7 @@ mod tests {
     #[tokio::test]
     async fn path_refresh_success() {
         let req = "/v1/My/Test?versionStage=AWSPENDING&refreshNow=0";
-        let (status, body) = run_request(&req).await;
+        let (status, body) = run_request(req).await;
         assert_eq!(status, StatusCode::OK);
         validate_response_extra("My/Test", DEFAULT_VERSION, vec!["AWSPENDING"], body);
     }
