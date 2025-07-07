@@ -94,7 +94,7 @@ impl Server {
             let mut http = http1::Builder::new();
             let http = http.max_buf_size(MAX_BUF_BYTES);
             if let Err(err) = timeout(time_out(), http.serve_connection(io, svc_fn)).await {
-                error!("Failed to serve connection: {:?}", err);
+                error!("Failed to serve connection: {err:?}");
             };
         });
 

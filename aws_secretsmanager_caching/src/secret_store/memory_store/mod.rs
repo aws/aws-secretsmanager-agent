@@ -115,11 +115,11 @@ mod tests {
     fn get_secret_value_output(suffix: Option<&str>) -> GetSecretValueOutputDef {
         GetSecretValueOutputDef {
             name: match suffix {
-                Some(suffix) => Some(format!("{}{}", NAME, suffix)),
+                Some(suffix) => Some(format!("{NAME}{suffix}")),
                 None => Some(NAME.to_string()),
             },
             arn: match suffix {
-                Some(suffix) => Some(format!("{}{}", ARN, suffix)),
+                Some(suffix) => Some(format!("{ARN}{suffix}")),
                 None => Some(ARN.to_string()),
             },
             version_id: Some(VERSION_ID.to_string()),
@@ -137,7 +137,7 @@ mod tests {
         stage: Option<String>,
     ) {
         let name = match suffix {
-            Some(suffix) => format!("{}{}", NAME, suffix),
+            Some(suffix) => format!("{NAME}{suffix}"),
             None => NAME.to_string(),
         };
 
