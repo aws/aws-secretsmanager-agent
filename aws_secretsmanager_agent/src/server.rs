@@ -14,6 +14,8 @@ use crate::constants::MAX_BUF_BYTES;
 use crate::error::HttpError;
 use crate::parse::GSVQuery;
 use crate::utils::{get_token, time_out};
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 
 /// Handle incoming HTTP requests.
@@ -25,6 +27,7 @@ pub struct Server {
     ssrf_headers: Arc<Vec<String>>,
     path_prefix: Arc<String>,
     max_conn: usize,
+    serving_enabled: Option<Arc<AtomicBool>>,
 }
 
 /// Handle incoming HTTP requests.
@@ -54,6 +57,7 @@ impl Server {
             ssrf_headers: Arc::new(cfg.ssrf_headers()),
             path_prefix: Arc::new(cfg.path_prefix()),
             max_conn: cfg.max_conn(),
+            serving_enabled: Some(Arc::new(AtomicBool::new(false))),
         })
     }
 
@@ -67,7 +71,7 @@ impl Server {
     /// # Errors
     ///
     /// * `std::io::Error` - Error while accepting request.
-    pub async fn serve_request(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn serve_request(&self, lambda_mode: bool) -> Result<(), Box<dyn std::error::Error>> {
         let (stream, _) = self.listener.accept().await?;
         stream.set_ttl(1)?; // Prohibit network hops
         let io = TokioIo::new(stream);
@@ -75,7 +79,7 @@ impl Server {
         let rq_cnt = Arc::strong_count(&self.cache_mgr); // concurrent request count
         tokio::task::spawn(async move {
             let svc_fn = service_fn(|req: Request<IncomingBody>| async {
-                svr_clone.complete_req(req, rq_cnt).await
+                svr_clone.complete_req(req, rq_cnt, lambda_mode).await
             });
             let mut http = http1::Builder::new();
             let http = http.max_buf_size(MAX_BUF_BYTES);
@@ -103,8 +107,9 @@ impl Server {
         &self,
         req: Request<IncomingBody>,
         count: usize,
+        lambda_mode: bool,
     ) -> Result<Response<Full<Bytes>>, hyper::Error> {
-        let result = self.get_result(&req, count).await;
+        let result = self.get_result(&req, count, lambda_mode).await;
 
         // Format the response.
         match result {
@@ -134,6 +139,7 @@ impl Server {
         &self,
         req: &Request<IncomingBody>,
         count: usize,
+        lambda_mode: bool,
     ) -> Result<String, HttpError> {
         self.validate_max_conn(req, count)?; // Verify connection limits are not exceeded
         self.validate_token(req)?; // Check for a valid SSRF token
@@ -142,8 +148,26 @@ impl Server {
         match req.uri().path() {
             "/ping" => Ok("healthy".into()), // Standard health check
 
+            "/start_serving" => {
+                if !lambda_mode {
+                    return Err(HttpError(404, "Not found".into()));
+                }
+                if let Some(serving_enabled) = &self.serving_enabled {
+                    serving_enabled.store(true, Relaxed);
+                }
+                Ok("serving enabled".into())
+            }
+
             // Lambda extension style query
             "/secretsmanager/get" => {
+                if lambda_mode {
+                    if let Some(serving_enabled) = &self.serving_enabled {
+                        if !serving_enabled.load(Relaxed) {
+                            return Err(HttpError(503, "Serving not enabled. Hit the /start_serving endpoint to enable serving requests.".into()));
+                        }
+                    }
+                }
+
                 let qry = GSVQuery::try_from_query(&req.uri().to_string())?;
                 Ok(self
                     .cache_mgr
@@ -158,6 +182,14 @@ impl Server {
 
             // Path style request
             path if path.starts_with(self.path_prefix.as_str()) => {
+                if lambda_mode {
+                    if let Some(serving_enabled) = &self.serving_enabled {
+                        if !serving_enabled.load(Relaxed) {
+                            return Err(HttpError(503, "Serving not enabled. Hit the /start_serving endpoint to enable serving requests.".into()));
+                        }
+                    }
+                }
+
                 let qry = GSVQuery::try_from_path_query(&req.uri().to_string(), &self.path_prefix)?;
                 Ok(self
                     .cache_mgr
@@ -169,6 +201,7 @@ impl Server {
                     )
                     .await?)
             }
+
             _ => Err(HttpError(404, "Not found".into())),
         }
     }
@@ -193,7 +226,7 @@ impl Server {
         count: usize,
     ) -> Result<(), HttpError> {
         // Add one to account for the extra server reference in main, allow 2 extra health check conns.
-        let limit = if req.uri().path() == "/ping" {
+        let limit = if req.uri().path() == "/ping" || req.uri().path() == "/start_serving" {
             self.max_conn + 3
         } else {
             self.max_conn + 1
@@ -221,7 +254,7 @@ impl Server {
     /// * `Err((u16, String))` - A 400 or 403 error code (if header is set or token is missing or wrong) and error message.
     #[doc(hidden)]
     fn validate_token(&self, req: &Request<IncomingBody>) -> Result<(), HttpError> {
-        if req.uri().path() == "/ping" {
+        if req.uri().path() == "/ping" || req.uri().path() == "/start_serving" {
             return Ok(());
         }
 

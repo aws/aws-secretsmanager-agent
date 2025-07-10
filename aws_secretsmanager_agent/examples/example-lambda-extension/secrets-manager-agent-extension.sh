@@ -25,7 +25,7 @@ start_agent() {
   if [ -z "${AGENT_PID:-}" ]; then
     echo "[${LAMBDA_EXTENSION_NAME}] Starting Secrets Manager Agent."
     # Switching working directory to ensure that the logs are written to a folder that has write permissions.
-    (cd /tmp && /opt/bin/secrets-manager-agent &)
+    (cd /tmp && /opt/bin/secrets-manager-agent -l &)
     AGENT_PID=$!
 
     echo "[${LAMBDA_EXTENSION_NAME}] Checking if the Agent is serving requests."
@@ -65,6 +65,7 @@ stop_agent() {
 # Initialization
 # To run any extension processes that need to start before the runtime initializes, run them before the /register
 echo "[${LAMBDA_EXTENSION_NAME}] Initialization"
+start_agent
 
 # Registration
 # The extension registration also signals to Lambda to start initializing the runtime.
@@ -99,7 +100,7 @@ do
     # Initializing the agent during Init would allow users to call and cache secrets before the snapshot phase (occurs last in Init), which in turn could store those values
     # in a snapshot of the sandbox for up to 14 days. https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html
     # Implement retry logic in your application code, to accommodate delays in agent initialization.
-    start_agent
+    curl -s http://localhost:2773/start_serving
   fi
 
   if [[ $EVENT_DATA == *"SHUTDOWN"* ]]; then

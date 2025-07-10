@@ -92,7 +92,7 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
     mut report: S,
     mut end: E,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (cfg, listener) = init(args).await;
+    let (cfg, listener, lambda_mode) = init(args).await;
     let addr = listener.local_addr()?;
     let svr = Server::new(listener, &cfg).await?;
 
@@ -101,7 +101,7 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
     // Spawn a handler for each incomming request.
     loop {
         // Report errors on accept.
-        if let Err(msg) = svr.serve_request().await {
+        if let Err(msg) = svr.serve_request(lambda_mode).await {
             error!("Could not accept connection: {:?}", msg);
         }
 
@@ -120,25 +120,29 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
 ///
 /// # Returns
 ///
-/// * (Config, TcpListener) - The configuration info and the TCP listener.
+/// * (Config, TcpListener, bool) - The configuration info, TCP listener, and Lambda mode flag.
 ///
 /// ```
 #[doc(hidden)]
-async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
+async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener, bool) {
     // Get the arg iterator and program name from arg 0.
     let mut args = args.into_iter();
     let usage = format!(
-        "Usage: {} [--config <file>]",
+        "Usage: {} [--config <file>] [--lambda]",
         args.next().unwrap_or_default().as_str()
     );
     let usage = usage.as_str();
     let mut config_file = None;
+    let mut lambda_mode = false;
 
     // Parse command line args and see if there is a config file.
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "-c" | "--config" => {
                 config_file = args.next().or_else(|| err_exit("Argument expected", usage))
+            }
+            "-l" | "--lambda" => {
+                lambda_mode = true;
             }
             "-h" | "--help" => err_exit("", usage),
             _ => err_exit(&format!("Unknown option {arg}"), usage),
@@ -174,7 +178,7 @@ async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
         err_exit(&msg, "")
     });
 
-    (config, listener)
+    (config, listener, lambda_mode)
 }
 
 /// Private helper print error messages and exit the process with an error.
