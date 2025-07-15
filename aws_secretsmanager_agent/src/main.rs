@@ -41,9 +41,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// use std::net::SocketAddr;
-/// report( &SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 2773) );
+/// report(&SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 2773));
 /// ```
 #[doc(hidden)]
 fn report(addr: &SocketAddr) {
@@ -63,11 +63,11 @@ fn report(addr: &SocketAddr) {
 ///
 /// # Returns
 ///
-/// * bool - Always returns false so the server never shuts down.
+/// * `bool` - Always returns false so the server never shuts down.
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// assert_eq!(forever(), false);
 /// ```
 #[doc(hidden)]
@@ -82,6 +82,7 @@ fn forever() -> bool {
 /// * `args` - The command line arguments.
 /// * `report` - A call back used to report startup and the listener port.
 /// * `end` - A call back used to signal shut down.
+///
 /// # Returns
 ///
 /// * `Ok(())` - Never retuned when started by the main entry point.
@@ -98,7 +99,7 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
 
     report(&addr); // Report the port used.
 
-    // Spawn a handler for each incomming request.
+    // Spawn a handler for each incoming request.
     loop {
         // Report errors on accept.
         if let Err(msg) = svr.serve_request().await {
@@ -120,9 +121,7 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
 ///
 /// # Returns
 ///
-/// * (Config, TcpListener) - The configuration info and the TCP listener.
-///
-/// ```
+/// * `(Config, TcpListener)` - The configuration info and the TCP listener.
 #[doc(hidden)]
 async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
     // Get the arg iterator and program name from arg 0.

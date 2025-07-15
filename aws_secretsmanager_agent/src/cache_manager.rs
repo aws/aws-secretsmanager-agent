@@ -57,7 +57,7 @@ impl CacheManager {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// let cache_manager = CacheManager::new().await.unwrap();
     /// let value = cache_manager.fetch("my-secret", None, None).unwrap();
     /// ```

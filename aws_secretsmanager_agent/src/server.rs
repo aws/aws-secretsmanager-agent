@@ -29,20 +29,20 @@ pub struct Server {
 
 /// Handle incoming HTTP requests.
 ///
-/// Implements the HTTP handler. Each incomming request is handled in its own
+/// Implements the HTTP handler. Each incoming request is handled in its own
 /// thread.
 impl Server {
     /// Create a server instance.
     ///
     /// # Arguments
     ///
-    /// * `listener` - The TcpListener to use to accept incomming requests.
+    /// * `listener` - The TcpListener to use to accept incoming requests.
     /// * `cfg` - The config object to use for options such header names.
     ///
     /// # Returns
     ///
     /// * `Ok(Self)` - The server object.
-    /// * `Box<dyn std::error::Error>>` - Retruned for errors initializing the agent
+    /// * `Box<dyn std::error::Error>>` - Returned for errors initializing the agent
     pub async fn new(
         listener: TcpListener,
         cfg: &Config,
@@ -87,11 +87,11 @@ impl Server {
         Ok(())
     }
 
-    /// Private helper to process the incomming request body and format a response.
+    /// Private helper to process the incoming request body and format a response.
     ///
     /// # Arguments
     ///
-    /// * `req` - The incomming HTTP request.
+    /// * `req` - The incoming HTTP request.
     /// * `count` - The number of concurrent requets being handled.
     ///
     /// # Returns
@@ -118,12 +118,12 @@ impl Server {
         }
     }
 
-    /// Parse an incomming request and provide the response data.
+    /// Parse an incoming request and provide the response data.
     ///
     /// # Arguments
     ///
-    /// * `req` - The incomming HTTP request.
-    /// * `count` - The number of concurrent requets being handled.
+    /// * `req` - The incoming HTTP request.
+    /// * `count` - The number of concurrent requests being handled.
     ///
     /// # Returns
     ///
@@ -173,13 +173,13 @@ impl Server {
         }
     }
 
-    /// Verify the incomming request does not exceed the maximum connection limit.
+    /// Verify the incoming request does not exceed the maximum connection limit.
     ///
     /// The limit is not enforced for ping/health checks.
     ///
     /// # Arguments
     ///
-    /// * `req` - The incomming HTTP request.
+    /// * `req` - The incoming HTTP request.
     /// * `count` - The number of concurrent requets being handled.
     ///
     /// # Returns
@@ -211,7 +211,7 @@ impl Server {
     ///
     /// # Arguments
     ///
-    /// * `req` - The incomming HTTP request.
+    /// * `req` - The incoming HTTP request.
     ///
     /// # Returns
     ///
@@ -247,7 +247,7 @@ impl Server {
     ///
     /// # Arguments
     ///
-    /// * `req` - The incomming HTTP request.
+    /// * `req` - The incoming HTTP request.
     ///
     /// # Returns
     ///
