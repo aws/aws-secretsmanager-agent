@@ -209,7 +209,6 @@ You can run the Secrets Manager Agent as a sidecar container alongside your appl
    **Important**
 
    You must load AWS credentials and the SSRF token for the application to be able to use the Secrets Manager Agent\. For EKS and ECS, see the following:
-
    - [Manage access](https://docs.aws.amazon.com/eks/latest/userguide/cluster-auth.html) in the _Amazon Elastic Kubernetes Service User Guide_
    - [Amazon ECS task IAM role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html) in the _Amazon Elastic Container Service Developer Guide_
 
