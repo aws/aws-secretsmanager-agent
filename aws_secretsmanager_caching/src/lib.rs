@@ -412,8 +412,8 @@ impl SecretsManagerCachingClient {
 
     #[cfg(debug_assertions)]
     fn get_cache_hit_rate(&self) -> f64 {
-        let hits = self.metrics.hits.load(Ordering::SeqCst);
-        let misses = self.metrics.misses.load(Ordering::SeqCst);
+        let hits = self.metrics.hits.load(Ordering::Relaxed);
+        let misses = self.metrics.misses.load(Ordering::Relaxed);
         let total = hits + misses;
 
         if total == 0 {
@@ -425,17 +425,17 @@ impl SecretsManagerCachingClient {
 
     #[cfg(debug_assertions)]
     fn increment_counter(&self, counter: &AtomicU32) -> () {
-        counter.fetch_add(1, Ordering::SeqCst);
+        counter.fetch_add(1, Ordering::Relaxed);
     }
 
     #[cfg(debug_assertions)]
     fn reset_counter(&self, counter: &AtomicU32) -> () {
-        counter.store(0, Ordering::SeqCst);
+        counter.store(0, Ordering::Relaxed);
     }
 
     #[cfg(debug_assertions)]
     fn get_counter_value(&self, counter: &AtomicU32) -> u32 {
-        counter.load(Ordering::SeqCst)
+        counter.load(Ordering::Relaxed)
     }
 }
 
