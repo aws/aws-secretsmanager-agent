@@ -189,10 +189,10 @@ impl SecretsManagerCachingClient {
         if refresh_now {
             #[cfg(debug_assertions)]
             {
+                self.increment_counter(&self.metrics.refreshes);
+
                 let hit_rate = self.get_cache_hit_rate();
                 let miss_rate = 100.0 - hit_rate;
-
-                self.increment_counter(&self.metrics.refreshes);
 
                 info!(
                     "METRICS: Bypassing GSV. Refreshing secret '{}' immediately. Total refreshes: {}. \
@@ -217,10 +217,10 @@ impl SecretsManagerCachingClient {
             Ok(r) => {
                 #[cfg(debug_assertions)]
                 {
+                    self.increment_counter(&self.metrics.hits);
+
                     let hit_rate = self.get_cache_hit_rate();
                     let miss_rate = 100.0 - hit_rate;
-
-                    self.increment_counter(&self.metrics.hits);
 
                     info!(
                         "METRICS: Cache HIT for secret '{}'. Total hits: {}. Total misses: {}. \
@@ -238,11 +238,11 @@ impl SecretsManagerCachingClient {
             Err(SecretStoreError::ResourceNotFound) => {
                 #[cfg(debug_assertions)]
                 {
-                    let hit_rate = self.get_cache_hit_rate();
-                    let miss_rate = 100.0 - hit_rate;
-
                     self.increment_counter(&self.metrics.misses);
                     self.increment_counter(&self.metrics.refreshes);
+
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
 
                     info!(
                         "METRICS: Cache MISS for secret '{}'. Total hits: {}. Total misses: {}. \
@@ -263,12 +263,12 @@ impl SecretsManagerCachingClient {
             Err(SecretStoreError::CacheExpired(cached_value)) => {
                 #[cfg(debug_assertions)]
                 {
-                    let hit_rate = self.get_cache_hit_rate();
-                    let miss_rate = 100.0 - hit_rate;
-
                     self.increment_counter(&self.metrics.refreshes);
                     self.reset_counter(&self.metrics.hits);
                     self.reset_counter(&self.metrics.misses);
+
+                    let hit_rate = self.get_cache_hit_rate();
+                    let miss_rate = 100.0 - hit_rate;
 
                     info!(
                         "METRICS: Cache expired. Resetting hits and misses. Total hits: {}. Total \
