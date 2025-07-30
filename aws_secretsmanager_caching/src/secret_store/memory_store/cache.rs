@@ -25,7 +25,7 @@ impl<K: Hash + Eq, V> Cache<K, V> {
     }
 
     /// Returns the number of items currently in the cache.
-    pub fn len(&mut self) -> usize {
+    pub fn len(&self) -> usize {
         self.entries.len()
     }
 
