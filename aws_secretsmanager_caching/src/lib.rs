@@ -190,12 +190,12 @@ impl SecretsManagerCachingClient {
             #[cfg(debug_assertions)]
             {
                 self.increment_counter(&self.metrics.refreshes);
+                self.increment_counter(&self.metrics.misses);
 
-                let hit_rate = self.get_cache_hit_rate();
-                let miss_rate = 100.0 - hit_rate;
+                let (hit_rate, miss_rate) = self.get_cache_rates();
 
                 info!(
-                    "METRICS: Bypassing GSV. Refreshing secret '{}' immediately. Total refreshes: {}. \
+                    "METRICS: Bypassing cache. Refreshing secret '{}' immediately. Total refreshes: {}. \
                     Total hits: {}. Total misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%",
                     secret_id,
                     self.get_counter_value(&self.metrics.refreshes),
@@ -219,8 +219,7 @@ impl SecretsManagerCachingClient {
                 {
                     self.increment_counter(&self.metrics.hits);
 
-                    let hit_rate = self.get_cache_hit_rate();
-                    let miss_rate = 100.0 - hit_rate;
+                    let (hit_rate, miss_rate) = self.get_cache_rates();
 
                     info!(
                         "METRICS: Cache HIT for secret '{}'. Total hits: {}. Total misses: {}. \
@@ -238,11 +237,10 @@ impl SecretsManagerCachingClient {
             Err(SecretStoreError::ResourceNotFound) => {
                 #[cfg(debug_assertions)]
                 {
-                    self.increment_counter(&self.metrics.misses);
                     self.increment_counter(&self.metrics.refreshes);
+                    self.increment_counter(&self.metrics.misses);
 
-                    let hit_rate = self.get_cache_hit_rate();
-                    let miss_rate = 100.0 - hit_rate;
+                    let (hit_rate, miss_rate) = self.get_cache_rates();
 
                     info!(
                         "METRICS: Cache MISS for secret '{}'. Total hits: {}. Total misses: {}. \
@@ -264,15 +262,15 @@ impl SecretsManagerCachingClient {
                 #[cfg(debug_assertions)]
                 {
                     self.increment_counter(&self.metrics.refreshes);
-                    self.reset_counter(&self.metrics.hits);
-                    self.reset_counter(&self.metrics.misses);
+                    self.increment_counter(&self.metrics.misses);
 
-                    let hit_rate = self.get_cache_hit_rate();
-                    let miss_rate = 100.0 - hit_rate;
+                    let (hit_rate, miss_rate) = self.get_cache_rates();
 
                     info!(
-                        "METRICS: Cache expired. Resetting hits and misses. Total hits: {}. Total \
+                        "METRICS: Cache entry expired for secret '{}'. Total refreshes: {}. Total hits: {}. Total \
                         misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%.",
+                        secret_id,
+                        self.get_counter_value(&self.metrics.refreshes),
                         self.get_counter_value(&self.metrics.hits),
                         self.get_counter_value(&self.metrics.misses),
                         hit_rate,
@@ -411,16 +409,18 @@ impl SecretsManagerCachingClient {
     }
 
     #[cfg(debug_assertions)]
-    fn get_cache_hit_rate(&self) -> f64 {
+    fn get_cache_rates(&self) -> (f64, f64) {
         let hits = self.metrics.hits.load(Ordering::Relaxed);
         let misses = self.metrics.misses.load(Ordering::Relaxed);
         let total = hits + misses;
 
         if total == 0 {
-            return 0.0;
+            return (0.0, 0.0);
         }
 
-        (hits as f64 / total as f64) * 100.0
+        let hit_rate = (hits as f64 / total as f64) * 100.0;
+
+        (hit_rate, 100.0 - hit_rate)
     }
 
     #[cfg(debug_assertions)]
