@@ -197,9 +197,9 @@ impl SecretsManagerCachingClient {
                     "METRICS: Bypassing cache. Refreshing secret '{}' immediately. \
                     Total hits: {}. Total misses: {}. Total refreshes: {}. Hit rate: {:.2}%. Miss rate: {:.2}%",
                     secret_id,
-                    self.get_counter_value(&self.metrics.refreshes),
                     self.get_counter_value(&self.metrics.hits),
                     self.get_counter_value(&self.metrics.misses),
+                    self.get_counter_value(&self.metrics.refreshes),
                     hit_rate,
                     miss_rate
                 );
@@ -267,9 +267,9 @@ impl SecretsManagerCachingClient {
                         "METRICS: Cache entry expired for secret '{}'. Total hits: {}. Total \
                         misses: {}. Total refreshes: {}. Hit rate: {:.2}%. Miss rate: {:.2}%.",
                         secret_id,
-                        self.get_counter_value(&self.metrics.refreshes),
                         self.get_counter_value(&self.metrics.hits),
                         self.get_counter_value(&self.metrics.misses),
+                        self.get_counter_value(&self.metrics.refreshes),
                         hit_rate,
                         miss_rate
                     );
