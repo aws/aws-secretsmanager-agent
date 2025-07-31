@@ -429,11 +429,6 @@ impl SecretsManagerCachingClient {
     }
 
     #[cfg(debug_assertions)]
-    fn reset_counter(&self, counter: &AtomicU32) -> () {
-        counter.store(0, Ordering::Relaxed);
-    }
-
-    #[cfg(debug_assertions)]
     fn get_counter_value(&self, counter: &AtomicU32) -> u32 {
         counter.load(Ordering::Relaxed)
     }
