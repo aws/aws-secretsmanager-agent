@@ -190,13 +190,12 @@ impl SecretsManagerCachingClient {
             #[cfg(debug_assertions)]
             {
                 self.increment_counter(&self.metrics.refreshes);
-                self.increment_counter(&self.metrics.misses);
 
                 let (hit_rate, miss_rate) = self.get_cache_rates();
 
                 info!(
-                    "METRICS: Bypassing cache. Refreshing secret '{}' immediately. Total refreshes: {}. \
-                    Total hits: {}. Total misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%",
+                    "METRICS: Bypassing cache. Refreshing secret '{}' immediately. \
+                    Total hits: {}. Total misses: {}. Total refreshes: {}. Hit rate: {:.2}%. Miss rate: {:.2}%",
                     secret_id,
                     self.get_counter_value(&self.metrics.refreshes),
                     self.get_counter_value(&self.metrics.hits),
@@ -237,7 +236,6 @@ impl SecretsManagerCachingClient {
             Err(SecretStoreError::ResourceNotFound) => {
                 #[cfg(debug_assertions)]
                 {
-                    self.increment_counter(&self.metrics.refreshes);
                     self.increment_counter(&self.metrics.misses);
 
                     let (hit_rate, miss_rate) = self.get_cache_rates();
@@ -261,14 +259,13 @@ impl SecretsManagerCachingClient {
             Err(SecretStoreError::CacheExpired(cached_value)) => {
                 #[cfg(debug_assertions)]
                 {
-                    self.increment_counter(&self.metrics.refreshes);
                     self.increment_counter(&self.metrics.misses);
 
                     let (hit_rate, miss_rate) = self.get_cache_rates();
 
                     info!(
-                        "METRICS: Cache entry expired for secret '{}'. Total refreshes: {}. Total hits: {}. Total \
-                        misses: {}. Hit rate: {:.2}%. Miss rate: {:.2}%.",
+                        "METRICS: Cache entry expired for secret '{}'. Total hits: {}. Total \
+                        misses: {}. Total refreshes: {}. Hit rate: {:.2}%. Miss rate: {:.2}%.",
                         secret_id,
                         self.get_counter_value(&self.metrics.refreshes),
                         self.get_counter_value(&self.metrics.hits),
