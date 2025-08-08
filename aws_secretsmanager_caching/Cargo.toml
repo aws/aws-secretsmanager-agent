@@ -23,7 +23,7 @@ rustls = "0"
 log = "0.4.20"
 
 [dev-dependencies]
-aws-smithy-mocks-experimental = "0"
+aws-smithy-mocks = "0"
 aws-smithy-runtime = { version = "1", features = ["test-util", "wire-mock"] }
 aws-sdk-secretsmanager = { version = "1", features = ["test-util"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "test-util"] }
