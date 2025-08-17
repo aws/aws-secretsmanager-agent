@@ -46,7 +46,7 @@ jobs:
       - name: Run tests
         run: cargo test --verbose --all-features --no-fail-fast
       - name: Code Coverage
-        run: cargo llvm-cov --codecov --output-path ./codecov.json
+        run: cargo llvm-cov --all-features --workspace --codecov --output-path ./codecov.json
       - name: Publish Code Coverage
         uses: codecov/codecov-action@v5
         with:
