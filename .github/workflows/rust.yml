@@ -9,8 +9,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-Cinstrument-coverage"
-  RUSTDOCFLAGS: "-Cinstrument-coverage"
 
 jobs:
   build:
@@ -26,8 +24,8 @@ jobs:
           toolchain: nightly
           override: true
           components: rustfmt, clippy, llvm-tools-preview
-      - name: Install grcov
-        run: cargo install grcov
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov
       - name: Install ninja-build tool for aws-lc-fips-sys on Windows
         if: runner.os == 'Windows'
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -48,12 +46,15 @@ jobs:
       - name: Run tests
         run: cargo test --verbose --all-features --no-fail-fast
       - name: Code Coverage
-        run: grcov . -s . --binary-path ./target/debug/ -t lcov --branch --ignore-not-existing -o ./lcov.info
+        run: cargo llvm-cov --all-features --workspace --codecov --output-path ./codecov.json
       - name: Publish Code Coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
+          files: ./codecov.json
+          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Lint
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --all-targets --all-features
+
