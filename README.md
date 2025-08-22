@@ -1,5 +1,8 @@
 # AWS Secrets Manager Agent
 
+[![Rust](https://github.com/aws/aws-secretsmanager-agent/actions/workflows/rust.yml/badge.svg?branch=main&event=push)](https://github.com/aws/aws-secretsmanager-agent/actions/workflows/rust.yml)
+[![codecov](https://codecov.io/gh/aws/aws-secretsmanager-agent/branch/main/graph/badge.svg?token=KK9ZV2MQW1)](https://codecov.io/gh/aws/aws-secretsmanager-agent)
+
 The AWS Secrets Manager Agent is a client\-side HTTP service that you can use to standardize consumption of secrets from Secrets Manager across environments such as AWS Lambda, Amazon Elastic Container Service, Amazon Elastic Kubernetes Service, and Amazon Elastic Compute Cloud\. The Secrets Manager Agent can retrieve and cache secrets in memory so that your applications can consume secrets directly from the cache\. That means you can fetch the secrets your application needs from the localhost instead of making calls to Secrets Manager\. The Secrets Manager Agent can only make read requests to Secrets Manager \- it can't modify secrets\. 
 
 The Secrets Manager Agent uses the AWS credentials you provide in your environment to make calls to Secrets Manager\. The Secrets Manager Agent offers protection against Server Side Request Forgery \(SSRF\) to help improve secret security\. The Agent also uses the post-quantum ML-KEM key exchange as the highest-priority key exchange by default\. You can configure the Secrets Manager Agent by setting the maximum number of connections, the time to live \(TTL\), the localhost HTTP port, and the cache size\.
