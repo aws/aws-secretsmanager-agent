@@ -1,12 +1,12 @@
 use aws_config;
 use aws_sdk_secretsmanager;
 use std::env;
-use std::fmt;
-use std::process::{Command, Stdio};
+use std::path::PathBuf;
+use std::process::Stdio;
 use std::time::Duration;
-use tokio::time::sleep;
-
-pub const AGENT_TIMEOUT: Duration = Duration::from_secs(30);
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command as TokioCommand;
+use url::Url;
 
 #[derive(Debug)]
 pub struct AgentQuery {
@@ -42,35 +42,37 @@ impl AgentQuery {
     }
 }
 
-impl fmt::Display for AgentQuery {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "secretId={}", self.secret_id)?;
+impl AgentQuery {
+    pub fn to_query_string(&self) -> String {
+        let mut url = Url::parse("http://localhost/").unwrap();
+        {
+            let mut query_pairs = url.query_pairs_mut();
+            query_pairs.append_pair("secretId", &self.secret_id);
 
-        if let Some(version_id) = &self.version_id {
-            write!(f, "&versionId={}", version_id)?;
+            if let Some(version_id) = &self.version_id {
+                query_pairs.append_pair("versionId", version_id);
+            }
+
+            if let Some(version_stage) = &self.version_stage {
+                query_pairs.append_pair("versionStage", version_stage);
+            }
+
+            if let Some(refresh_now) = self.refresh_now {
+                query_pairs.append_pair("refreshNow", &refresh_now.to_string());
+            }
         }
-
-        if let Some(version_stage) = &self.version_stage {
-            write!(f, "&versionStage={}", version_stage)?;
-        }
-
-        if let Some(refresh_now) = self.refresh_now {
-            write!(f, "&refreshNow={}", refresh_now)?;
-        }
-
-        Ok(())
+        url.query().unwrap_or("").to_string()
     }
 }
 
 pub struct AgentProcess {
-    pub child: std::process::Child,
+    pub child: tokio::process::Child,
     pub port: u16,
 }
 
 impl Drop for AgentProcess {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        let _ = self.child.start_kill();
     }
 }
 
@@ -92,18 +94,28 @@ validate_credentials = false
     env::set_var("AWS_TOKEN", "test-token-123");
 
     let possible_paths = [
-        "./target/release/aws_secretsmanager_agent",
-        "./target/debug/aws_secretsmanager_agent",
-        "../target/release/aws_secretsmanager_agent",
-        "../target/debug/aws_secretsmanager_agent",
+        PathBuf::from("target")
+            .join("release")
+            .join("aws_secretsmanager_agent"),
+        PathBuf::from("target")
+            .join("debug")
+            .join("aws_secretsmanager_agent"),
+        PathBuf::from("..")
+            .join("target")
+            .join("release")
+            .join("aws_secretsmanager_agent"),
+        PathBuf::from("..")
+            .join("target")
+            .join("debug")
+            .join("aws_secretsmanager_agent"),
     ];
 
     let agent_path = possible_paths
         .iter()
-        .find(|path| std::path::Path::new(path).exists())
+        .find(|path| path.exists())
         .expect("Agent binary not found");
 
-    let mut child = Command::new(agent_path)
+    let mut child = TokioCommand::new(agent_path)
         .arg("--config")
         .arg(&config_path)
         .stdout(Stdio::piped())
@@ -111,31 +123,21 @@ validate_credentials = false
         .spawn()
         .expect("Failed to start agent");
 
-    // Wait for agent to start
-    let start_time = std::time::Instant::now();
-    loop {
-        if start_time.elapsed() > AGENT_TIMEOUT {
-            let _ = child.kill();
-            panic!("Agent failed to start within timeout");
+    // Read stdout until we see the "listening" message
+    let stdout = child.stdout.take().expect("Failed to get stdout");
+    let mut reader = BufReader::new(stdout).lines();
+
+    let mut found_listening = false;
+    while let Ok(Some(line)) = reader.next_line().await {
+        if line.contains("listening on") {
+            found_listening = true;
+            break;
         }
+    }
 
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_millis(500))
-            .connect_timeout(Duration::from_millis(200))
-            .build()
-            .expect("Failed to build HTTP client");
-
-        if let Ok(response) = client
-            .get(&format!("http://localhost:{}/ping", port))
-            .send()
-            .await
-        {
-            if response.status() == 200 {
-                break;
-            }
-        }
-
-        sleep(Duration::from_millis(100)).await;
+    if !found_listening {
+        let _ = child.kill().await;
+        panic!("Agent failed to start - no listening message found");
     }
 
     AgentProcess { child, port }
@@ -147,11 +149,12 @@ pub async fn make_agent_request(port: u16, query: &AgentQuery) -> String {
         .connect_timeout(Duration::from_secs(5))
         .build()
         .expect("Failed to build HTTP client");
+    let mut url = Url::parse(&format!("http://localhost:{}/secretsmanager/get", port))
+        .expect("Failed to parse URL");
+    url.set_query(Some(&query.to_query_string()));
+
     let response = client
-        .get(&format!(
-            "http://localhost:{}/secretsmanager/get?{}",
-            port, query
-        ))
+        .get(url)
         .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
         .send()
         .await
