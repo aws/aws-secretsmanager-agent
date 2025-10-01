@@ -1,0 +1,13 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "test-util"] }
+reqwest = "0.12"
+serde_json = "1"
+aws-config = "1"
+aws-sdk-secretsmanager = "1"
+

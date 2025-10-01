@@ -577,7 +577,6 @@ dependencies = [
  "log",
  "log4rs",
  "pretty_env_logger",
- "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
@@ -1725,6 +1724,17 @@ dependencies = [
  "hashbrown 0.16.0",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "integration-tests"
+version = "0.1.0"
+dependencies = [
+ "aws-config",
+ "aws-sdk-secretsmanager",
+ "reqwest",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
