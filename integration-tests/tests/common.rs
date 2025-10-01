@@ -1,5 +1,6 @@
 use aws_config;
 use aws_sdk_secretsmanager;
+use derive_builder::Builder;
 use std::env;
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -8,38 +9,16 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use url::Url;
 
-#[derive(Debug)]
+#[derive(Debug, Builder)]
+#[builder(setter(into, strip_option))]
 pub struct AgentQuery {
     pub secret_id: String,
+    #[builder(default)]
     pub version_id: Option<String>,
+    #[builder(default)]
     pub version_stage: Option<String>,
+    #[builder(default)]
     pub refresh_now: Option<bool>,
-}
-
-impl AgentQuery {
-    pub fn new(secret_id: impl Into<String>) -> Self {
-        Self {
-            secret_id: secret_id.into(),
-            version_id: None,
-            version_stage: None,
-            refresh_now: None,
-        }
-    }
-
-    pub fn with_version_id(mut self, version_id: impl Into<String>) -> Self {
-        self.version_id = Some(version_id.into());
-        self
-    }
-
-    pub fn with_version_stage(mut self, version_stage: impl Into<String>) -> Self {
-        self.version_stage = Some(version_stage.into());
-        self
-    }
-
-    pub fn with_refresh_now(mut self, refresh_now: bool) -> Self {
-        self.refresh_now = Some(refresh_now);
-        self
-    }
 }
 
 impl AgentQuery {
@@ -128,10 +107,22 @@ validate_credentials = false
     let mut reader = BufReader::new(stdout).lines();
 
     let mut found_listening = false;
-    while let Ok(Some(line)) = reader.next_line().await {
-        if line.contains("listening on") {
-            found_listening = true;
-            break;
+    loop {
+        match reader.next_line().await {
+            Ok(Some(line)) => {
+                if line.contains("listening on") {
+                    found_listening = true;
+                    break;
+                }
+            }
+            Ok(None) => {
+                // Stream ended without finding listening message
+                break;
+            }
+            Err(e) => {
+                let _ = child.kill().await;
+                panic!("Failed to read agent output: {}", e);
+            }
         }
     }
 

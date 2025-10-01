@@ -10,7 +10,10 @@ async fn test_secret_retrieval_by_name() {
 
     let agent = start_agent_on_port(2775).await;
 
-    let query = AgentQuery::new(&secret_name);
+    let query = AgentQueryBuilder::default()
+        .secret_id(&secret_name)
+        .build()
+        .unwrap();
     let response = make_agent_request(agent.port, &query).await;
     let json: serde_json::Value = serde_json::from_str(&response).unwrap();
 
@@ -42,7 +45,7 @@ async fn test_secret_retrieval_by_arn() {
 
     let agent = start_agent_on_port(2776).await;
 
-    let query = AgentQuery::new(arn);
+    let query = AgentQueryBuilder::default().secret_id(arn).build().unwrap();
     let response = make_agent_request(agent.port, &query).await;
     let json: serde_json::Value = serde_json::from_str(&response).unwrap();
 
