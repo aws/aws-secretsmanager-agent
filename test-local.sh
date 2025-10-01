@@ -30,8 +30,8 @@ cargo build
 echo "Running integration tests..."
 cd aws_secretsmanager_agent
 
-# Run all integration test files
-TEST_SECRET_PREFIX="$TEST_PREFIX" cargo test --test secret_retrieval -- --test-threads=1
+# Run integration tests (including ignored ones)
+TEST_SECRET_PREFIX="$TEST_PREFIX" cargo test --test secret_retrieval -- --test-threads=1 --ignored
 
 cd ..
 

@@ -3,6 +3,7 @@ mod common;
 use common::*;
 
 #[tokio::test]
+#[ignore = "integration test - requires TEST_SECRET_PREFIX env var and AWS credentials"]
 async fn test_secret_retrieval_by_name() {
     let secret_prefix = get_test_secret_prefix();
     let secret_name = format!("{}-basic", secret_prefix);
@@ -18,6 +19,7 @@ async fn test_secret_retrieval_by_name() {
 }
 
 #[tokio::test]
+#[ignore = "integration test - requires TEST_SECRET_PREFIX env var and AWS credentials"]
 async fn test_secret_retrieval_by_arn() {
     let secret_prefix = get_test_secret_prefix();
     let secret_name = format!("{}-basic", secret_prefix);
