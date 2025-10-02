@@ -106,29 +106,22 @@ validate_credentials = false
     let stdout = child.stdout.take().expect("Failed to get stdout");
     let mut reader = BufReader::new(stdout).lines();
 
-    let mut found_listening = false;
-    loop {
-        match reader.next_line().await {
-            Ok(Some(line)) => {
-                if line.contains("listening on") {
-                    found_listening = true;
-                    break;
-                }
-            }
-            Ok(None) => {
-                // Stream ended without finding listening message
-                break;
-            }
-            Err(e) => {
+    match reader.next_line().await {
+        Ok(Some(line)) => {
+            if !line.contains("listening on") {
                 let _ = child.kill().await;
-                panic!("Failed to read agent output: {}", e);
+                panic!("Agent failed to start - no listening message found");
             }
         }
-    }
-
-    if !found_listening {
-        let _ = child.kill().await;
-        panic!("Agent failed to start - no listening message found");
+        Ok(None) => {
+            // Stream ended without finding listening message
+            let _ = child.kill().await;
+            panic!("Stream ended without finding listening message");
+        }
+        Err(e) => {
+            let _ = child.kill().await;
+            panic!("Failed to read agent output: {}", e);
+        }
     }
 
     AgentProcess { child, port }
