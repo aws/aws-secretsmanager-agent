@@ -101,7 +101,7 @@ fn cache_eviction(c: &mut Criterion) {
         .build()
         .unwrap();
 
-    c.bench_function("GetSecretValue", |b| {
+    c.bench_function("CacheEviction", |b| {
         b.to_async(&rt).iter(async || {
             cache
                 .get_secret_value(&random_string(10), None, None, false)
