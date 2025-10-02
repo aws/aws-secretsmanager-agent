@@ -58,12 +58,10 @@ fn cache_hit(c: &mut Criterion) {
 
     c.bench_function("CacheHit", |b| {
         b.to_async(&rt).iter(async || {
-            // for _ in 0..10_000 {
             cache
                 .get_secret_value("secretid", None, None, false)
                 .await
                 .unwrap();
-            // }
         });
     });
 }
