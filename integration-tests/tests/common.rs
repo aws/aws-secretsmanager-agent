@@ -114,7 +114,6 @@ validate_credentials = false
             }
         }
         Ok(None) => {
-            // Stream ended without finding listening message
             let _ = child.kill().await;
             panic!("Stream ended without finding listening message");
         }
