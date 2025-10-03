@@ -5,8 +5,8 @@ use common::*;
 #[tokio::test]
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_name() {
-    let secret_prefix = setup_test_secrets().await;
-    let secret_name = format!("{}-basic", secret_prefix);
+    let secrets = TestSecrets::setup().await;
+    let secret_name = format!("{}-basic", secrets.prefix);
 
     let agent = start_agent_on_port(2775).await;
 
@@ -20,15 +20,13 @@ async fn test_secret_retrieval_by_name() {
     assert_eq!(json["Name"], secret_name);
     assert!(json["SecretString"].as_str().unwrap().contains("testuser"));
     assert!(json["VersionId"].is_string());
-
-    cleanup_test_secrets(&secret_prefix).await;
 }
 
 #[tokio::test]
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_arn() {
-    let secret_prefix = setup_test_secrets().await;
-    let secret_name = format!("{}-basic", secret_prefix);
+    let secrets = TestSecrets::setup().await;
+    let secret_name = format!("{}-basic", secrets.prefix);
 
     // Get the ARN using AWS SDK
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -51,15 +49,13 @@ async fn test_secret_retrieval_by_arn() {
 
     assert_eq!(json["ARN"], arn);
     assert!(json["SecretString"].as_str().unwrap().contains("testuser"));
-
-    cleanup_test_secrets(&secret_prefix).await;
 }
 
 #[tokio::test]
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_binary_secret_retrieval() {
-    let secret_prefix = setup_test_secrets().await;
-    let secret_name = format!("{}-binary", secret_prefix);
+    let secrets = TestSecrets::setup().await;
+    let secret_name = format!("{}-binary", secrets.prefix);
 
     let agent = start_agent_on_port(2777).await;
 
@@ -73,15 +69,13 @@ async fn test_binary_secret_retrieval() {
     assert_eq!(json["Name"], secret_name);
     assert!(json["SecretBinary"].is_string());
     assert!(json["SecretString"].is_null());
-
-    cleanup_test_secrets(&secret_prefix).await;
 }
 
 #[tokio::test]
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_version_stage_retrieval() {
-    let secret_prefix = setup_test_secrets().await;
-    let secret_name = format!("{}-versioned", secret_prefix);
+    let secrets = TestSecrets::setup().await;
+    let secret_name = format!("{}-versioned", secrets.prefix);
 
     let agent = start_agent_on_port(2778).await;
 
@@ -122,19 +116,16 @@ async fn test_version_stage_retrieval() {
         .as_array()
         .unwrap()
         .contains(&serde_json::Value::String("AWSPENDING".to_string())));
-
-    cleanup_test_secrets(&secret_prefix).await;
 }
 
 #[tokio::test]
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_version_id_retrieval() {
-    let secret_prefix = setup_test_secrets().await;
-    let secret_name = format!("{}-versioned", secret_prefix);
+    let secrets = TestSecrets::setup().await;
+    let secret_name = format!("{}-versioned", secrets.prefix);
 
     // Get the version IDs for both stages
-    let (current_version_id, pending_version_id) =
-        get_secret_version_ids(&secret_prefix, "versioned").await;
+    let (current_version_id, pending_version_id) = secrets.get_version_ids("versioned").await;
 
     let agent = start_agent_on_port(2779).await;
 
@@ -169,15 +160,13 @@ async fn test_version_id_retrieval() {
         .as_str()
         .unwrap()
         .contains("pendinguser"));
-
-    cleanup_test_secrets(&secret_prefix).await;
 }
 
 #[tokio::test]
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_large_secret_retrieval() {
-    let secret_prefix = setup_test_secrets().await;
-    let secret_name = format!("{}-large", secret_prefix);
+    let secrets = TestSecrets::setup().await;
+    let secret_name = format!("{}-large", secrets.prefix);
 
     let agent = start_agent_on_port(2780).await;
 
@@ -200,6 +189,4 @@ async fn test_large_secret_retrieval() {
         .unwrap()
         .chars()
         .all(|c| c == 'x'));
-
-    cleanup_test_secrets(&secret_prefix).await;
 }

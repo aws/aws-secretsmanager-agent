@@ -154,121 +154,155 @@ pub async fn make_agent_request(port: u16, query: &AgentQuery) -> String {
     response.text().await.expect("Failed to read response body")
 }
 
-pub async fn setup_test_secrets() -> String {
-    let test_prefix = format!(
-        "aws-sm-agent-test-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    );
-
-    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let client = aws_sdk_secretsmanager::Client::new(&config);
-
-    // Create basic test secret
-    let secret_name = format!("{}-basic", test_prefix);
-    client
-        .create_secret()
-        .name(&secret_name)
-        .description("Basic test secret for aws-secretsmanager-agent")
-        .secret_string(r#"{"username":"testuser","password":"testpass123"}"#)
-        .send()
-        .await
-        .expect("Failed to create test secret");
-
-    // Create binary test secret
-    let binary_secret_name = format!("{}-binary", test_prefix);
-    let binary_data = b"\x00\x01\x02\x03\xFF\xFE\xFD";
-    client
-        .create_secret()
-        .name(&binary_secret_name)
-        .description("Binary test secret for aws-secretsmanager-agent")
-        .secret_binary(aws_sdk_secretsmanager::primitives::Blob::new(binary_data))
-        .send()
-        .await
-        .expect("Failed to create binary test secret");
-
-    // Create versioned test secret
-    let versioned_secret_name = format!("{}-versioned", test_prefix);
-    client
-        .create_secret()
-        .name(&versioned_secret_name)
-        .description("Versioned test secret for aws-secretsmanager-agent")
-        .secret_string(r#"{"username":"currentuser","password":"currentpass"}"#)
-        .send()
-        .await
-        .expect("Failed to create versioned test secret");
-
-    // Create AWSPENDING version using put_secret_value
-    client
-        .put_secret_value()
-        .secret_id(&versioned_secret_name)
-        .secret_string(r#"{"username":"pendinguser","password":"pendingpass"}"#)
-        .version_stages("AWSPENDING")
-        .send()
-        .await
-        .expect("Failed to create AWSPENDING version");
-
-    // Create large test secret (near 64KB limit)
-    let large_secret_name = format!("{}-large", test_prefix);
-    let large_data = "x".repeat(60000); // ~60KB of data
-    let large_secret_json = format!(r#"{{"data":"{}","size":"60KB"}}"#, large_data);
-    client
-        .create_secret()
-        .name(&large_secret_name)
-        .description("Large test secret for aws-secretsmanager-agent")
-        .secret_string(&large_secret_json)
-        .send()
-        .await
-        .expect("Failed to create large test secret");
-
-    // Wait for the versions to be fully processed
-    tokio::time::sleep(Duration::from_secs(2)).await;
-
-    test_prefix
+pub struct TestSecrets {
+    pub prefix: String,
 }
 
-pub async fn get_secret_version_ids(test_prefix: &str, secret_type: &str) -> (String, String) {
-    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let client = aws_sdk_secretsmanager::Client::new(&config);
-    let secret_name = format!("{}-{}", test_prefix, secret_type);
+impl TestSecrets {
+    pub async fn setup() -> Self {
+        let test_prefix = format!(
+            "aws-sm-agent-test-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
 
-    let describe_response = client
-        .describe_secret()
-        .secret_id(&secret_name)
-        .send()
-        .await
-        .expect("Failed to describe secret");
+        let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+        let client = aws_sdk_secretsmanager::Client::new(&config);
 
-    let version_ids_to_stages = describe_response.version_ids_to_stages().unwrap();
-    let mut current_version = String::new();
-    let mut pending_version = String::new();
+        // Create basic test secret
+        let secret_name = format!("{}-basic", test_prefix);
+        client
+            .create_secret()
+            .name(&secret_name)
+            .description("Basic test secret for aws-secretsmanager-agent")
+            .secret_string(r#"{"username":"testuser","password":"testpass123"}"#)
+            .send()
+            .await
+            .expect("Failed to create test secret");
 
-    for (version_id, stages) in version_ids_to_stages {
-        if stages.contains(&"AWSCURRENT".to_string()) {
-            current_version = version_id.clone();
-        }
-        if stages.contains(&"AWSPENDING".to_string()) {
-            pending_version = version_id.clone();
+        // Create binary test secret
+        let binary_secret_name = format!("{}-binary", test_prefix);
+        let binary_data = b"\x00\x01\x02\x03\xFF\xFE\xFD";
+        client
+            .create_secret()
+            .name(&binary_secret_name)
+            .description("Binary test secret for aws-secretsmanager-agent")
+            .secret_binary(aws_sdk_secretsmanager::primitives::Blob::new(binary_data))
+            .send()
+            .await
+            .expect("Failed to create binary test secret");
+
+        // Create versioned test secret
+        let versioned_secret_name = format!("{}-versioned", test_prefix);
+        client
+            .create_secret()
+            .name(&versioned_secret_name)
+            .description("Versioned test secret for aws-secretsmanager-agent")
+            .secret_string(r#"{"username":"currentuser","password":"currentpass"}"#)
+            .send()
+            .await
+            .expect("Failed to create versioned test secret");
+
+        // Create AWSPENDING version using put_secret_value
+        client
+            .put_secret_value()
+            .secret_id(&versioned_secret_name)
+            .secret_string(r#"{"username":"pendinguser","password":"pendingpass"}"#)
+            .version_stages("AWSPENDING")
+            .send()
+            .await
+            .expect("Failed to create AWSPENDING version");
+
+        // Create large test secret (near 64KB limit)
+        let large_secret_name = format!("{}-large", test_prefix);
+        let large_data = "x".repeat(60000); // ~60KB of data
+        let large_secret_json = format!(r#"{{"data":"{}","size":"60KB"}}"#, large_data);
+        client
+            .create_secret()
+            .name(&large_secret_name)
+            .description("Large test secret for aws-secretsmanager-agent")
+            .secret_string(&large_secret_json)
+            .send()
+            .await
+            .expect("Failed to create large test secret");
+
+        // Wait for AWSPENDING version to be available
+        let _ = Self::wait_for_pending_version(&client, &versioned_secret_name).await;
+
+        Self {
+            prefix: test_prefix,
         }
     }
 
-    (current_version, pending_version)
+    async fn wait_for_pending_version(
+        client: &aws_sdk_secretsmanager::Client,
+        secret_name: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::timeout(Duration::from_secs(10), async {
+            loop {
+                if let Ok(response) = client.describe_secret().secret_id(secret_name).send().await {
+                    if let Some(versions) = response.version_ids_to_stages() {
+                        for stages in versions.values() {
+                            if stages.contains(&"AWSPENDING".to_string()) {
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+        })
+        .await?
+    }
+
+    pub async fn get_version_ids(&self, secret_type: &str) -> (String, String) {
+        let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+        let client = aws_sdk_secretsmanager::Client::new(&config);
+        let secret_name = format!("{}-{}", self.prefix, secret_type);
+
+        let describe_response = client
+            .describe_secret()
+            .secret_id(&secret_name)
+            .send()
+            .await
+            .expect("Failed to describe secret");
+
+        let version_ids_to_stages = describe_response.version_ids_to_stages().unwrap();
+        let mut current_version = String::new();
+        let mut pending_version = String::new();
+
+        for (version_id, stages) in version_ids_to_stages {
+            if stages.contains(&"AWSCURRENT".to_string()) {
+                current_version = version_id.clone();
+            }
+            if stages.contains(&"AWSPENDING".to_string()) {
+                pending_version = version_id.clone();
+            }
+        }
+
+        (current_version, pending_version)
+    }
 }
 
-pub async fn cleanup_test_secrets(test_prefix: &str) {
-    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let client = aws_sdk_secretsmanager::Client::new(&config);
+impl Drop for TestSecrets {
+    fn drop(&mut self) {
+        let prefix = self.prefix.clone();
+        tokio::spawn(async move {
+            let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+            let client = aws_sdk_secretsmanager::Client::new(&config);
 
-    let secret_types = ["basic", "binary", "versioned", "large"];
-    for secret_type in secret_types {
-        let secret_name = format!("{}-{}", test_prefix, secret_type);
-        let _ = client
-            .delete_secret()
-            .secret_id(&secret_name)
-            .force_delete_without_recovery(true)
-            .send()
-            .await;
+            let secret_types = ["basic", "binary", "versioned", "large"];
+            for secret_type in secret_types {
+                let secret_name = format!("{}-{}", prefix, secret_type);
+                let _ = client
+                    .delete_secret()
+                    .secret_id(&secret_name)
+                    .force_delete_without_recovery(true)
+                    .send()
+                    .await;
+            }
+        });
     }
 }
