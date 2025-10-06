@@ -183,7 +183,7 @@ pub struct TestSecrets {
 }
 
 impl TestSecrets {
-    fn secret_name(&self, secret_type: SecretType) -> String {
+    pub fn secret_name(&self, secret_type: SecretType) -> String {
         format!("{}-{}", self.prefix, secret_type)
     }
 

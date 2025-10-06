@@ -6,7 +6,7 @@ use common::*;
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_name() {
     let secrets = TestSecrets::setup().await;
-    let secret_name = format!("{}-basic", secrets.prefix);
+    let secret_name = secrets.secret_name(SecretType::Basic);
 
     let agent = AgentProcess::start_on_port(2775).await;
 
@@ -26,7 +26,7 @@ async fn test_secret_retrieval_by_name() {
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_arn() {
     let secrets = TestSecrets::setup().await;
-    let secret_name = format!("{}-basic", secrets.prefix);
+    let secret_name = secrets.secret_name(SecretType::Basic);
 
     // Get the ARN using AWS SDK
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
@@ -55,7 +55,7 @@ async fn test_secret_retrieval_by_arn() {
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_binary_secret_retrieval() {
     let secrets = TestSecrets::setup().await;
-    let secret_name = format!("{}-binary", secrets.prefix);
+    let secret_name = secrets.secret_name(SecretType::Binary);
 
     let agent = AgentProcess::start_on_port(2777).await;
 
@@ -75,7 +75,7 @@ async fn test_binary_secret_retrieval() {
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_version_stage_retrieval() {
     let secrets = TestSecrets::setup().await;
-    let secret_name = format!("{}-versioned", secrets.prefix);
+    let secret_name = secrets.secret_name(SecretType::Versioned);
 
     // Wait for AWSPENDING version to be available
     let _ = secrets
@@ -127,7 +127,7 @@ async fn test_version_stage_retrieval() {
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_version_id_retrieval() {
     let secrets = TestSecrets::setup().await;
-    let secret_name = format!("{}-versioned", secrets.prefix);
+    let secret_name = secrets.secret_name(SecretType::Versioned);
 
     // Wait for AWSPENDING version to be available
     let _ = secrets
@@ -177,7 +177,7 @@ async fn test_version_id_retrieval() {
 #[ignore = "integration test - requires AWS credentials"]
 async fn test_large_secret_retrieval() {
     let secrets = TestSecrets::setup().await;
-    let secret_name = format!("{}-large", secrets.prefix);
+    let secret_name = secrets.secret_name(SecretType::Large);
 
     let agent = AgentProcess::start_on_port(2780).await;
 
