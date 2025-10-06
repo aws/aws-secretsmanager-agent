@@ -49,77 +49,72 @@ pub struct AgentProcess {
     pub port: u16,
 }
 
-
-
 impl AgentProcess {
     pub async fn start_on_port(port: u16) -> AgentProcess {
-    let config_content = format!(
-        r#"
+        let config_content = format!(
+            r#"
 http_port = {}
 log_level = "info"
 ttl_seconds = 5
 cache_size = 100
 validate_credentials = true
 "#,
-        port
-    );
+            port
+        );
 
-    let config_path = format!("/tmp/test_config_{}.toml", port);
-    std::fs::write(&config_path, config_content).expect("Failed to write test config");
+        let config_path = format!("/tmp/test_config_{}.toml", port);
+        std::fs::write(&config_path, config_content).expect("Failed to write test config");
 
-    env::set_var("AWS_TOKEN", "test-token-123");
+        env::set_var("AWS_TOKEN", "test-token-123");
 
-    let possible_paths = [
-        PathBuf::from("target")
-            .join("release")
-            .join("aws_secretsmanager_agent"),
-        PathBuf::from("target")
-            .join("debug")
-            .join("aws_secretsmanager_agent"),
-        PathBuf::from("..")
-            .join("target")
-            .join("release")
-            .join("aws_secretsmanager_agent"),
-        PathBuf::from("..")
-            .join("target")
-            .join("debug")
-            .join("aws_secretsmanager_agent"),
-    ];
+        let possible_paths = [
+            PathBuf::from("target")
+                .join("release")
+                .join("aws_secretsmanager_agent"),
+            PathBuf::from("target")
+                .join("debug")
+                .join("aws_secretsmanager_agent"),
+            PathBuf::from("..")
+                .join("target")
+                .join("release")
+                .join("aws_secretsmanager_agent"),
+            PathBuf::from("..")
+                .join("target")
+                .join("debug")
+                .join("aws_secretsmanager_agent"),
+        ];
 
-    let agent_path = possible_paths
-        .iter()
-        .find(|path| path.exists())
-        .expect("Agent binary not found");
+        let agent_path = possible_paths
+            .iter()
+            .find(|path| path.exists())
+            .expect("Agent binary not found");
 
-    let mut child = TokioCommand::new(agent_path)
-        .arg("--config")
-        .arg(&config_path)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .expect("Failed to start agent");
+        let mut child = TokioCommand::new(agent_path)
+            .arg("--config")
+            .arg(&config_path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .expect("Failed to start agent");
 
-    // Read stdout until we see the "listening" message
-    let stdout = child.stdout.take().expect("Failed to get stdout");
-    let mut reader = BufReader::new(stdout).lines();
+        // Read stdout until we see the "listening" message
+        let stdout = child.stdout.take().expect("Failed to get stdout");
+        let mut reader = BufReader::new(stdout).lines();
 
-    match reader.next_line().await {
-        Ok(Some(line)) => {
-            if !line.contains("listening on") {
-                let _ = child.kill().await;
-                panic!("Agent failed to start - no listening message found");
+        match reader.next_line().await {
+            Ok(Some(line)) => {
+                if !line.contains("listening on") {
+                    panic!("Agent failed to start - no listening message found");
+                }
+            }
+            Ok(None) => {
+                panic!("Stream ended without finding listening message");
+            }
+            Err(e) => {
+                panic!("Failed to read agent output: {}", e);
             }
         }
-        Ok(None) => {
-            let _ = child.kill().await;
-            panic!("Stream ended without finding listening message");
-        }
-        Err(e) => {
-            let _ = child.kill().await;
-            panic!("Failed to read agent output: {}", e);
-        }
-    }
 
         AgentProcess { child, port }
     }
@@ -130,8 +125,11 @@ validate_credentials = true
             .connect_timeout(Duration::from_secs(5))
             .build()
             .expect("Failed to build HTTP client");
-        let mut url = Url::parse(&format!("http://localhost:{}/secretsmanager/get", self.port))
-            .expect("Failed to parse URL");
+        let mut url = Url::parse(&format!(
+            "http://localhost:{}/secretsmanager/get",
+            self.port
+        ))
+        .expect("Failed to parse URL");
         url.set_query(Some(&query.to_query_string()));
 
         let response = client
@@ -152,8 +150,6 @@ validate_credentials = true
         response.text().await.expect("Failed to read response body")
     }
 }
-
-
 
 pub struct TestSecrets {
     pub prefix: String,
@@ -234,9 +230,10 @@ impl TestSecrets {
         }
     }
 
-
-
-    pub async fn wait_for_pending_version(&self, secret_type: &str) -> Result<(), tokio::time::error::Elapsed> {
+    pub async fn wait_for_pending_version(
+        &self,
+        secret_type: &str,
+    ) -> Result<(), tokio::time::error::Elapsed> {
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
                 let (_, pending_version) = self.get_version_ids(secret_type).await;
@@ -245,7 +242,8 @@ impl TestSecrets {
                 }
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }
-        }).await
+        })
+        .await
     }
 
     pub async fn get_version_ids(&self, secret_type: &str) -> (String, String) {
