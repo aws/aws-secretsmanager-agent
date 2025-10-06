@@ -49,20 +49,17 @@ pub struct AgentProcess {
     pub port: u16,
 }
 
-impl Drop for AgentProcess {
-    fn drop(&mut self) {
-        let _ = self.child.start_kill();
-    }
-}
 
-pub async fn start_agent_on_port(port: u16) -> AgentProcess {
+
+impl AgentProcess {
+    pub async fn start_on_port(port: u16) -> AgentProcess {
     let config_content = format!(
         r#"
 http_port = {}
 log_level = "info"
 ttl_seconds = 5
 cache_size = 100
-validate_credentials = false
+validate_credentials = true
 "#,
         port
     );
@@ -99,6 +96,7 @@ validate_credentials = false
         .arg(&config_path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .kill_on_drop(true)
         .spawn()
         .expect("Failed to start agent");
 
@@ -123,36 +121,39 @@ validate_credentials = false
         }
     }
 
-    AgentProcess { child, port }
-}
-
-pub async fn make_agent_request(port: u16, query: &AgentQuery) -> String {
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .connect_timeout(Duration::from_secs(5))
-        .build()
-        .expect("Failed to build HTTP client");
-    let mut url = Url::parse(&format!("http://localhost:{}/secretsmanager/get", port))
-        .expect("Failed to parse URL");
-    url.set_query(Some(&query.to_query_string()));
-
-    let response = client
-        .get(url)
-        .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
-        .send()
-        .await
-        .expect("Failed to make agent request");
-
-    let status = response.status();
-    if status != 200 {
-        let error_body = response
-            .text()
-            .await
-            .unwrap_or_else(|_| "Failed to read error body".to_string());
-        panic!("Agent returned status {}: {}", status, error_body);
+        AgentProcess { child, port }
     }
-    response.text().await.expect("Failed to read response body")
+
+    pub async fn make_request(&self, query: &AgentQuery) -> String {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to build HTTP client");
+        let mut url = Url::parse(&format!("http://localhost:{}/secretsmanager/get", self.port))
+            .expect("Failed to parse URL");
+        url.set_query(Some(&query.to_query_string()));
+
+        let response = client
+            .get(url)
+            .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
+            .send()
+            .await
+            .expect("Failed to make agent request");
+
+        let status = response.status();
+        if status != 200 {
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error body".to_string());
+            panic!("Agent returned status {}: {}", status, error_body);
+        }
+        response.text().await.expect("Failed to read response body")
+    }
 }
+
+
 
 pub struct TestSecrets {
     pub prefix: String,
@@ -228,33 +229,23 @@ impl TestSecrets {
             .await
             .expect("Failed to create large test secret");
 
-        // Wait for AWSPENDING version to be available
-        let _ = Self::wait_for_pending_version(&client, &versioned_secret_name).await;
-
         Self {
             prefix: test_prefix,
         }
     }
 
-    async fn wait_for_pending_version(
-        client: &aws_sdk_secretsmanager::Client,
-        secret_name: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+
+
+    pub async fn wait_for_pending_version(&self, secret_type: &str) -> Result<(), tokio::time::error::Elapsed> {
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
-                if let Ok(response) = client.describe_secret().secret_id(secret_name).send().await {
-                    if let Some(versions) = response.version_ids_to_stages() {
-                        for stages in versions.values() {
-                            if stages.contains(&"AWSPENDING".to_string()) {
-                                return Ok(());
-                            }
-                        }
-                    }
+                let (_, pending_version) = self.get_version_ids(secret_type).await;
+                if !pending_version.is_empty() {
+                    break;
                 }
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }
-        })
-        .await?
+        }).await
     }
 
     pub async fn get_version_ids(&self, secret_type: &str) -> (String, String) {
