@@ -78,7 +78,9 @@ async fn test_version_stage_retrieval() {
     let secret_name = format!("{}-versioned", secrets.prefix);
 
     // Wait for AWSPENDING version to be available
-    let _ = secrets.wait_for_pending_version("versioned").await;
+    let _ = secrets
+        .wait_for_pending_version(SecretType::Versioned)
+        .await;
 
     let agent = AgentProcess::start_on_port(2778).await;
 
@@ -128,10 +130,13 @@ async fn test_version_id_retrieval() {
     let secret_name = format!("{}-versioned", secrets.prefix);
 
     // Wait for AWSPENDING version to be available
-    let _ = secrets.wait_for_pending_version("versioned").await;
+    let _ = secrets
+        .wait_for_pending_version(SecretType::Versioned)
+        .await;
 
     // Get the version IDs for both stages
-    let (current_version_id, pending_version_id) = secrets.get_version_ids("versioned").await;
+    let (current_version_id, pending_version_id) =
+        secrets.get_version_ids(SecretType::Versioned).await;
 
     let agent = AgentProcess::start_on_port(2779).await;
 

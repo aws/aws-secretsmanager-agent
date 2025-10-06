@@ -2,12 +2,39 @@ use aws_config;
 use aws_sdk_secretsmanager;
 use derive_builder::Builder;
 use std::env;
+use std::fmt;
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use url::Url;
+
+#[derive(Debug, Clone, Copy)]
+pub enum SecretType {
+    Basic,
+    Binary,
+    Versioned,
+    Large,
+}
+
+impl fmt::Display for SecretType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SecretType::Basic => write!(f, "basic"),
+            SecretType::Binary => write!(f, "binary"),
+            SecretType::Versioned => write!(f, "versioned"),
+            SecretType::Large => write!(f, "large"),
+        }
+    }
+}
+
+const ALL_SECRET_TYPES: [SecretType; 4] = [
+    SecretType::Basic,
+    SecretType::Binary,
+    SecretType::Versioned,
+    SecretType::Large,
+];
 
 #[derive(Debug, Builder)]
 #[builder(setter(into, strip_option))]
@@ -156,6 +183,10 @@ pub struct TestSecrets {
 }
 
 impl TestSecrets {
+    fn secret_name(&self, secret_type: SecretType) -> String {
+        format!("{}-{}", self.prefix, secret_type)
+    }
+
     pub async fn setup() -> Self {
         let test_prefix = format!(
             "aws-sm-agent-test-{}",
@@ -168,8 +199,12 @@ impl TestSecrets {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_secretsmanager::Client::new(&config);
 
+        let temp_secrets = Self {
+            prefix: test_prefix.clone(),
+        };
+
         // Create basic test secret
-        let secret_name = format!("{}-basic", test_prefix);
+        let secret_name = temp_secrets.secret_name(SecretType::Basic);
         client
             .create_secret()
             .name(&secret_name)
@@ -180,7 +215,7 @@ impl TestSecrets {
             .expect("Failed to create test secret");
 
         // Create binary test secret
-        let binary_secret_name = format!("{}-binary", test_prefix);
+        let binary_secret_name = temp_secrets.secret_name(SecretType::Binary);
         let binary_data = b"\x00\x01\x02\x03\xFF\xFE\xFD";
         client
             .create_secret()
@@ -192,7 +227,7 @@ impl TestSecrets {
             .expect("Failed to create binary test secret");
 
         // Create versioned test secret
-        let versioned_secret_name = format!("{}-versioned", test_prefix);
+        let versioned_secret_name = temp_secrets.secret_name(SecretType::Versioned);
         client
             .create_secret()
             .name(&versioned_secret_name)
@@ -213,7 +248,7 @@ impl TestSecrets {
             .expect("Failed to create AWSPENDING version");
 
         // Create large test secret (near 64KB limit)
-        let large_secret_name = format!("{}-large", test_prefix);
+        let large_secret_name = temp_secrets.secret_name(SecretType::Large);
         let large_data = "x".repeat(60000); // ~60KB of data
         let large_secret_json = format!(r#"{{"data":"{}","size":"60KB"}}"#, large_data);
         client
@@ -225,14 +260,12 @@ impl TestSecrets {
             .await
             .expect("Failed to create large test secret");
 
-        Self {
-            prefix: test_prefix,
-        }
+        temp_secrets
     }
 
     pub async fn wait_for_pending_version(
         &self,
-        secret_type: &str,
+        secret_type: SecretType,
     ) -> Result<(), tokio::time::error::Elapsed> {
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
@@ -246,10 +279,10 @@ impl TestSecrets {
         .await
     }
 
-    pub async fn get_version_ids(&self, secret_type: &str) -> (String, String) {
+    pub async fn get_version_ids(&self, secret_type: SecretType) -> (String, String) {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_secretsmanager::Client::new(&config);
-        let secret_name = format!("{}-{}", self.prefix, secret_type);
+        let secret_name = self.secret_name(secret_type);
 
         let describe_response = client
             .describe_secret()
@@ -282,8 +315,7 @@ impl Drop for TestSecrets {
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
             let client = aws_sdk_secretsmanager::Client::new(&config);
 
-            let secret_types = ["basic", "binary", "versioned", "large"];
-            for secret_type in secret_types {
+            for secret_type in ALL_SECRET_TYPES {
                 let secret_name = format!("{}-{}", prefix, secret_type);
                 let _ = client
                     .delete_secret()
