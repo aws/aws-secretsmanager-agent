@@ -77,16 +77,20 @@ pub struct AgentProcess {
 }
 
 impl AgentProcess {
-    pub async fn start_on_port(port: u16) -> AgentProcess {
+    pub async fn start() -> AgentProcess {
+        Self::start_with_config(2775, 5).await
+    }
+
+    pub async fn start_with_config(port: u16, ttl_seconds: u16) -> AgentProcess {
         let config_content = format!(
             r#"
 http_port = {}
 log_level = "info"
-ttl_seconds = 5
+ttl_seconds = {}
 cache_size = 100
 validate_credentials = true
 "#,
-            port
+            port, ttl_seconds
         );
 
         let config_path = format!("/tmp/test_config_{}.toml", port);

@@ -8,7 +8,7 @@ async fn test_secret_retrieval_by_name() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Basic);
 
-    let agent = AgentProcess::start_on_port(2775).await;
+    let agent = AgentProcess::start().await;
 
     let query = AgentQueryBuilder::default()
         .secret_id(&secret_name)
@@ -41,7 +41,7 @@ async fn test_secret_retrieval_by_arn() {
 
     let arn = describe_response.arn().expect("Secret ARN not found");
 
-    let agent = AgentProcess::start_on_port(2776).await;
+    let agent = AgentProcess::start().await;
 
     let query = AgentQueryBuilder::default().secret_id(arn).build().unwrap();
     let response = agent.make_request(&query).await;
@@ -57,7 +57,7 @@ async fn test_binary_secret_retrieval() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Binary);
 
-    let agent = AgentProcess::start_on_port(2777).await;
+    let agent = AgentProcess::start().await;
 
     let query = AgentQueryBuilder::default()
         .secret_id(&secret_name)
@@ -82,7 +82,7 @@ async fn test_version_stage_retrieval() {
         .wait_for_pending_version(SecretType::Versioned)
         .await;
 
-    let agent = AgentProcess::start_on_port(2778).await;
+    let agent = AgentProcess::start().await;
 
     // Test AWSCURRENT stage (latest version)
     let current_query = AgentQueryBuilder::default()
@@ -138,7 +138,7 @@ async fn test_version_id_retrieval() {
     let (current_version_id, pending_version_id) =
         secrets.get_version_ids(SecretType::Versioned).await;
 
-    let agent = AgentProcess::start_on_port(2779).await;
+    let agent = AgentProcess::start().await;
 
     // Test retrieval by AWSCURRENT version ID
     let current_query = AgentQueryBuilder::default()
@@ -179,7 +179,7 @@ async fn test_large_secret_retrieval() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Large);
 
-    let agent = AgentProcess::start_on_port(2780).await;
+    let agent = AgentProcess::start().await;
 
     let query = AgentQueryBuilder::default()
         .secret_id(&secret_name)
