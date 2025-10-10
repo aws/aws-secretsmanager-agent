@@ -43,7 +43,7 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
 
 **NOTE:** In order to ensure a stable experience, check out a specific git tag when building from source. `main` is a development branch and is not guaranteed to be stable. You can find a list of version tags [here](https://github.com/aws/aws-secretsmanager-agent/tags). Tags are in the pattern `x.y.z` and follow [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html).
 
-Example: `git clone --branch "<git tag>" https://github.com/aws/aws-secretsmanager-agent.git`
+Example: `git clone --branch <git tag> https://github.com/aws/aws-secretsmanager-agent.git`
 
 **NOTE:** Building the agent with the `fips` feature enabled on macOS currently requires the following workaround:
 
