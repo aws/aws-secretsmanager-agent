@@ -1,0 +1,61 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    # TODO: Uncomment when AWS roles are created
+    # - name: Determine IAM role
+    #   id: role
+    #   run: |
+    #     if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]]; then
+    #       echo "role_arn=${{ vars.AWS_FORK_ROLE_ARN }}" >> $GITHUB_OUTPUT
+    #     else
+    #       echo "role_arn=${{ vars.AWS_TRUSTED_ROLE_ARN }}" >> $GITHUB_OUTPUT
+    #     fi
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        # role-to-assume: ${{ steps.role.outputs.role_arn }}  # TODO: Uncomment when roles exist
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # TODO: Remove when roles are ready
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # TODO: Remove when roles are ready
+        # role-session-name: secrets-manager-agent-ci-${{ github.run_id }}  # TODO: Uncomment when using roles
+        aws-region: us-east-1
+    
+    - name: Build agent
+      run: cargo build --release
+    
+    - name: Run integration tests
+      run: |
+        cd integration-tests
+        cargo test -- --test-threads=1 --ignored
