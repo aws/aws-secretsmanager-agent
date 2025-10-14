@@ -52,6 +52,7 @@ jobs:
         # role-to-assume: ${{ steps.role.outputs.role_arn }}  # TODO: Uncomment when roles exist
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # TODO: Remove when roles are ready
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # TODO: Remove when roles are ready
+        aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}  # TODO: Remove when roles are ready
         # role-session-name: secrets-manager-agent-ci-${{ github.run_id }}  # TODO: Uncomment when using roles
         aws-region: us-east-1
     
