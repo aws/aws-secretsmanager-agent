@@ -5,13 +5,10 @@ use std::env;
 use std::fmt;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use url::Url;
-
-static PORT_COUNTER: AtomicU16 = AtomicU16::new(2775);
 
 #[derive(Debug, Clone, Copy)]
 pub enum SecretType {
@@ -81,8 +78,7 @@ pub struct AgentProcess {
 
 impl AgentProcess {
     pub async fn start() -> AgentProcess {
-        let port = PORT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        Self::start_with_config(port, 5).await
+        Self::start_with_config(2775, 5).await
     }
 
     pub async fn start_with_config(port: u16, ttl_seconds: u16) -> AgentProcess {
@@ -196,20 +192,12 @@ impl TestSecrets {
     }
 
     pub async fn setup() -> Self {
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
-        let mut hasher = DefaultHasher::new();
-        std::thread::current().id().hash(&mut hasher);
-        std::time::SystemTime::now()
+        let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_nanos()
-            .hash(&mut hasher);
-        fastrand::u64(..).hash(&mut hasher);
-        let hash = hasher.finish();
+            .as_nanos();
 
-        let test_prefix = format!("aws-sm-agent-test-{}", hash);
+        let test_prefix = format!("aws-sm-agent-test-{}", timestamp);
 
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_secretsmanager::Client::new(&config);

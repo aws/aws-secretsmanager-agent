@@ -1777,7 +1777,6 @@ dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
  "derive_builder",
- "fastrand",
  "reqwest",
  "serde_json",
  "tokio",

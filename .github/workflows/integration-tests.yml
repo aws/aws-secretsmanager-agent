@@ -21,14 +21,14 @@ jobs:
     if: |
       github.event_name != 'pull_request_target' ||
       github.event.pull_request.author_association == 'COLLABORATOR' ||
-      contains(github.event.pull_request.labels.*.name, 'safe to test')
+      contains(github.event.pull_request.labels.*.name, 'safe-to-test')
     
     permissions:
       id-token: write
       contents: read
     
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
     
@@ -48,7 +48,7 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v5
       with:
         role-to-assume: ${{ secrets.ROLE_ARN }}
         role-session-name: secrets-manager-agent-ci-${{ github.run_id }}
