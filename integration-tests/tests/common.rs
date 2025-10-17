@@ -192,13 +192,12 @@ impl TestSecrets {
     }
 
     pub async fn setup() -> Self {
-        let test_prefix = format!(
-            "aws-sm-agent-test-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        );
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+
+        let test_prefix = format!("aws-sm-agent-test-{}", timestamp);
 
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_secretsmanager::Client::new(&config);

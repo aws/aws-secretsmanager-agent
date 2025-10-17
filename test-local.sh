@@ -15,9 +15,9 @@ cargo build
 echo "Running integration tests..."
 cd integration-tests
 
-# Run integration tests (including ignored ones)
-# Tests now handle their own setup and cleanup
-cargo test -- --test-threads=1 --ignored
+# Run integration tests sequentially (matches CI behavior)
+# Tests handle their own setup and cleanup
+cargo test -- --test-threads=1
 
 cd ..
 
