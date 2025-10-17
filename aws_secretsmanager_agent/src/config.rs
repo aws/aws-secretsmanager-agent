@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 const DEFAULT_LOG_LEVEL: &str = "info";
+const DEFAULT_LOG_TO_FILE: bool = true;
 const DEFAULT_HTTP_PORT: &str = "2773";
 const DEFAULT_TTL_SECONDS: &str = "300";
 const DEFAULT_CACHE_SIZE: &str = "1000";
@@ -23,6 +24,7 @@ const DEFAULT_SSRF_ENV_VARIABLES: [&str; 3] = [
 ];
 const DEFAULT_PATH_PREFIX: &str = "/v1/";
 const DEFAULT_IGNORE_TRANSIENT_ERRORS: bool = true;
+const DEFAULT_STS_CHECK: bool = true;
 
 const DEFAULT_REGION: Option<String> = None;
 
@@ -32,6 +34,7 @@ const DEFAULT_REGION: Option<String> = None;
 #[serde(deny_unknown_fields)] // We want to error out when file has misspelled or unknown configurations.
 struct ConfigFile {
     log_level: String,
+    log_to_file: bool,
     http_port: String,
     ttl_seconds: String,
     cache_size: String,
@@ -41,6 +44,7 @@ struct ConfigFile {
     max_conn: String,
     region: Option<String>,
     ignore_transient_errors: bool,
+    validate_credentials: bool,
 }
 
 /// The log levels supported by the daemon.
@@ -75,6 +79,9 @@ pub struct Config {
     /// The level of logging the agent provides ie. debug, info, warn, error or none.
     log_level: LogLevel,
 
+    // Whether to write logs to a file (default) or to stdout/stderr
+    log_to_file: bool,
+
     /// The port for the local HTTP server.
     http_port: u16,
 
@@ -102,6 +109,9 @@ pub struct Config {
 
     /// Whether the agent should serve cached data on transient refresh errors
     ignore_transient_errors: bool,
+
+    /// Whether the agent should validate AWS credentials at startup
+    validate_credentials: bool,
 }
 
 /// The default configuration options.
@@ -130,6 +140,7 @@ impl Config {
         // Setting default configurations
         let mut config = ConfigLib::builder()
             .set_default("log_level", DEFAULT_LOG_LEVEL)?
+            .set_default("log_to_file", DEFAULT_LOG_TO_FILE)?
             .set_default("http_port", DEFAULT_HTTP_PORT)?
             .set_default("ttl_seconds", DEFAULT_TTL_SECONDS)?
             .set_default("cache_size", DEFAULT_CACHE_SIZE)?
@@ -144,7 +155,8 @@ impl Config {
             .set_default("path_prefix", DEFAULT_PATH_PREFIX)?
             .set_default("max_conn", DEFAULT_MAX_CONNECTIONS)?
             .set_default("region", DEFAULT_REGION)?
-            .set_default("ignore_transient_errors", DEFAULT_IGNORE_TRANSIENT_ERRORS)?;
+            .set_default("ignore_transient_errors", DEFAULT_IGNORE_TRANSIENT_ERRORS)?
+            .set_default("validate_credentials", DEFAULT_STS_CHECK)?;
 
         // Merge the config overrides onto the default configurations, if provided.
         config = match file_path {
@@ -162,6 +174,16 @@ impl Config {
     /// * `LogLevel` - The log level to use. Defaults to Info.
     pub fn log_level(&self) -> LogLevel {
         self.log_level
+    }
+
+    /// Whether to write logs to a file (default) or to stdout/stderr
+    ///
+    /// # Returns
+    ///
+    /// * `log_to_file` - `true` if writing logs to a file (default), `false` if writing logs to
+    /// stdout/stderr
+    pub fn log_to_file(&self) -> bool {
+        self.log_to_file
     }
 
     /// The port for the local HTTP server to listen for incomming requests.
@@ -247,6 +269,15 @@ impl Config {
         self.ignore_transient_errors
     }
 
+    /// Whether to validate AWS credentials on startup using STS GetCallerIdentity
+    ///
+    /// # Returns
+    ///
+    /// * `validate_credentials` - Whether the agent should validate AWS credentials at startup. Defaults to "true"
+    pub fn validate_credentials(&self) -> bool {
+        self.validate_credentials
+    }
+
     /// Private helper that fills in the Config instance from the specified
     /// config overrides (or defaults).
     ///
@@ -263,6 +294,7 @@ impl Config {
         let config = Config {
             // Configurations that are allowed to be overridden.
             log_level: LogLevel::from_str(config_file.log_level.as_str())?,
+            log_to_file: config_file.log_to_file,
             http_port: parse_num::<u16>(
                 &config_file.http_port,
                 INVALID_HTTP_PORT_ERR_MSG,
@@ -295,6 +327,7 @@ impl Config {
             )?,
             region: config_file.region,
             ignore_transient_errors: config_file.ignore_transient_errors,
+            validate_credentials: config_file.validate_credentials,
         };
 
         // Additional validations.
@@ -369,6 +402,7 @@ mod tests {
     fn get_default_config_file() -> ConfigFile {
         ConfigFile {
             log_level: String::from(DEFAULT_LOG_LEVEL),
+            log_to_file: DEFAULT_LOG_TO_FILE,
             http_port: String::from(DEFAULT_HTTP_PORT),
             ttl_seconds: String::from(DEFAULT_TTL_SECONDS),
             cache_size: String::from(DEFAULT_CACHE_SIZE),
@@ -378,6 +412,7 @@ mod tests {
             max_conn: String::from(DEFAULT_MAX_CONNECTIONS),
             region: None,
             ignore_transient_errors: DEFAULT_IGNORE_TRANSIENT_ERRORS,
+            validate_credentials: DEFAULT_STS_CHECK,
         }
     }
 
@@ -404,6 +439,7 @@ mod tests {
         assert_eq!(config.clone().max_conn(), 800);
         assert_eq!(config.clone().region(), None);
         assert!(config.ignore_transient_errors());
+        assert!(config.validate_credentials());
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -429,6 +465,7 @@ mod tests {
         assert_eq!(config.clone().max_conn(), 10);
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
         assert!(!config.ignore_transient_errors());
+        assert!(!config.validate_credentials());
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.
@@ -593,6 +630,7 @@ mod tests {
         assert_eq!(config.clone().log_level(), LogLevel::Info);
         assert_eq!(config.clone().http_port(), 2773);
         assert_eq!(config.clone().ttl(), Duration::from_secs(300));
+        assert!(config.validate_credentials());
         assert_eq!(
             config.clone().cache_size(),
             NonZeroUsize::new(1000).unwrap()
