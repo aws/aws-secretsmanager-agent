@@ -3,7 +3,6 @@ mod common;
 use common::*;
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_name() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Basic);
@@ -23,7 +22,6 @@ async fn test_secret_retrieval_by_name() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_arn() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Basic);
@@ -52,7 +50,6 @@ async fn test_secret_retrieval_by_arn() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_binary_secret_retrieval() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Binary);
@@ -72,7 +69,6 @@ async fn test_binary_secret_retrieval() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_version_stage_retrieval() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Versioned);
@@ -124,7 +120,6 @@ async fn test_version_stage_retrieval() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_version_id_retrieval() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Versioned);
@@ -174,7 +169,6 @@ async fn test_version_id_retrieval() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_large_secret_retrieval() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Large);

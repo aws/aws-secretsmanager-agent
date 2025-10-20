@@ -1,0 +1,55 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    # Run if:
+    # 1. Manual trigger or push to main, OR
+    # 2. PR from trusted author (COLLABORATOR), OR
+    # 3. PR from untrusted author with "safe to test" label
+    if: |
+      github.event_name != 'pull_request_target' ||
+      github.event.pull_request.author_association == 'COLLABORATOR' ||
+      contains(github.event.pull_request.labels.*.name, 'safe-to-test')
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v5
+      with:
+        role-to-assume: ${{ secrets.ROLE_ARN }}
+        role-session-name: secrets-manager-agent-ci-${{ github.run_id }}
+        aws-region: us-east-1
+    
+    - name: Build agent binary
+      run: cargo build
+    
+    - name: Run integration tests
+      run: |
+        cd integration-tests
+        cargo test -- --test-threads=1
