@@ -5,7 +5,7 @@ on:
   push:
     branches: ["main"]
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [labeled]
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,18 +16,24 @@ jobs:
     
     # Run if:
     # 1. Manual trigger or push to main, OR
-    # 2. PR from trusted author (COLLABORATOR), OR
-    # 3. PR from untrusted author with "safe to test" label
+    # 2. PR with "safe-to-test" label added
     if: |
       github.event_name != 'pull_request_target' ||
-      github.event.pull_request.author_association == 'COLLABORATOR' ||
       contains(github.event.pull_request.labels.*.name, 'safe-to-test')
     
     permissions:
       id-token: write
       contents: read
+      pull-requests: write
     
     steps:
+    - name: Remove safe-to-test label after use
+      if: github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'safe-to-test')
+      run: |
+        gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/safe-to-test -X DELETE || true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
     - name: Checkout
       uses: actions/checkout@v5
       with:
