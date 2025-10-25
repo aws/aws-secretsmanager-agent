@@ -5,7 +5,7 @@ on:
   push:
     branches: ["main"]
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+    types: [labeled]
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,7 +17,7 @@ jobs:
     # Run if:
     # 1. Manual trigger or push to main, OR
     # 2. PR from trusted author (COLLABORATOR), OR
-    # 3. PR from untrusted author with "safe to test" label
+    # 3. PR with "safe to test" label
     if: |
       github.event_name != 'pull_request_target' ||
       github.event.pull_request.author_association == 'COLLABORATOR' ||
@@ -26,8 +26,26 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      issues: write
+      pull-requests: write
+
+    env:
+      LABEL_NAME: safe-to-test
+      REPO: ${{ github.event.pull_request.base.repo.full_name }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
     
     steps:
+    - name: Remove label
+      run: |
+        echo "Removing label '$LABEL_NAME' from PR #$PR_NUMBER on repo $REPO" 
+        gh_status=$(gh api "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL_NAME" -X DELETE | jq ".status // empty" --raw-output)
+        case $gh_status in
+          "") echo "Label removed" ;;
+          404) echo "Label not found — ignoring" ;;
+          *) echo "unexpected HTTP $gh_status" && exit 1 ;;
+        esac
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Checkout
       uses: actions/checkout@v5
       with:
