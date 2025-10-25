@@ -36,7 +36,7 @@ jobs:
     - name: Remove label
       run: |
         echo "Removing label '$LABEL_NAME' from PR #$PR_NUMBER on repo $REPO" 
-        gh_status=$(gh api "repos/$OWNER/$REPO/issues/$PR_NUMBER/labels/$LABEL_NAME" -X DELETE | jq ".status" --raw-output)
+        gh_status=$(gh api "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL_NAME" -X DELETE | jq ".status" --raw-output)
         case $gh_status in
           200) echo "Label removed" ;;
           404) echo "Label not found — ignoring" ;;
