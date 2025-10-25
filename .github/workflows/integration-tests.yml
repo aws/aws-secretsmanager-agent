@@ -16,7 +16,7 @@ jobs:
     
     # Run if:
     # 1. Manual trigger or push to main, OR
-    # 3. PR with "safe to test" label
+    # 2. PR with "safe to test" label
     if: |
       github.event_name != 'pull_request_target' ||
       contains(github.event.pull_request.labels.*.name, 'safe-to-test')
