@@ -147,7 +147,10 @@ validate_credentials = true
             }
         }
 
-        AgentProcess { _child: child, port }
+        AgentProcess {
+            _child: child,
+            port,
+        }
     }
 
     pub async fn make_request(&self, query: &AgentQuery) -> String {
