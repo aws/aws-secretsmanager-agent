@@ -62,7 +62,7 @@ jobs:
       with:
         role-to-assume: ${{ secrets.ROLE_ARN }}
         role-session-name: secrets-manager-agent-ci-${{ github.run_id }}
-        aws-region: us-east-1
+        aws-region: us-west-2
     
     - name: Build agent binary
       run: cargo build
