@@ -98,7 +98,7 @@ validate_credentials = true
 
         // Use AWS credentials from environment (GitHub Actions)
         // Generate a simple SSRF token for local communication
-        env::set_var("AWS_TOKEN", "github-actions-token");
+        env::set_var("AWS_TOKEN", "test-token-123");
 
         let possible_paths = [
             PathBuf::from("target")
@@ -128,7 +128,6 @@ validate_credentials = true
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
-            .env("AWS_REGION", "us-west-2")  // Ensure agent uses correct region
             .spawn()
             .expect("Failed to start agent");
 
@@ -168,7 +167,7 @@ validate_credentials = true
 
         let response = client
             .get(url)
-            .header("X-Aws-Parameters-Secrets-Token", "github-actions-token")
+            .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
             .send()
             .await
             .expect("Failed to make agent request");
@@ -203,11 +202,7 @@ impl TestSecrets {
         let test_prefix = format!("aws-sm-agent-test-{}", timestamp);
 
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-        let client = aws_sdk_secretsmanager::Client::from_conf(
-            aws_sdk_secretsmanager::config::Builder::from(&config)
-                .region(aws_config::Region::new("us-west-2"))
-                .build(),
-        );
+        let client = aws_sdk_secretsmanager::Client::new(&config);
 
         let temp_secrets = Self {
             prefix: test_prefix.clone(),
@@ -291,11 +286,7 @@ impl TestSecrets {
 
     pub async fn get_version_ids(&self, secret_type: SecretType) -> (String, String) {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-        let client = aws_sdk_secretsmanager::Client::from_conf(
-            aws_sdk_secretsmanager::config::Builder::from(&config)
-                .region(aws_config::Region::new("us-west-2"))
-                .build(),
-        );
+        let client = aws_sdk_secretsmanager::Client::new(&config);
         let secret_name = self.secret_name(secret_type);
 
         let describe_response = client
@@ -327,11 +318,7 @@ impl Drop for TestSecrets {
         let prefix = self.prefix.clone();
         tokio::spawn(async move {
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-            let client = aws_sdk_secretsmanager::Client::from_conf(
-                aws_sdk_secretsmanager::config::Builder::from(&config)
-                    .region(aws_config::Region::new("us-west-2"))
-                    .build(),
-            );
+            let client = aws_sdk_secretsmanager::Client::new(&config);
 
             for secret_type in ALL_SECRET_TYPES {
                 let secret_name = format!("{}-{}", prefix, secret_type);

@@ -28,11 +28,7 @@ async fn test_secret_retrieval_by_arn() {
 
     // Get the ARN using AWS SDK
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
-    let client = aws_sdk_secretsmanager::Client::from_conf(
-        aws_sdk_secretsmanager::config::Builder::from(&config)
-            .region(aws_config::Region::new("us-west-2"))
-            .build(),
-    );
+    let client = aws_sdk_secretsmanager::Client::new(&config);
 
     let describe_response = client
         .describe_secret()
