@@ -96,7 +96,9 @@ validate_credentials = true
         let config_path = format!("/tmp/test_config_{}.toml", port);
         std::fs::write(&config_path, config_content).expect("Failed to write test config");
 
-        env::set_var("AWS_TOKEN", "test-token-123");
+        // Use AWS credentials from environment (GitHub Actions)
+        // Generate a simple SSRF token for local communication
+        env::set_var("AWS_TOKEN", "github-actions-token");
 
         let possible_paths = [
             PathBuf::from("target")
@@ -165,7 +167,7 @@ validate_credentials = true
 
         let response = client
             .get(url)
-            .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
+            .header("X-Aws-Parameters-Secrets-Token", "github-actions-token")
             .send()
             .await
             .expect("Failed to make agent request");
