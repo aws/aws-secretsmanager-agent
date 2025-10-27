@@ -95,6 +95,7 @@ validate_credentials = true
 
         let config_path = format!("/tmp/test_config_{}.toml", port);
         std::fs::write(&config_path, config_content).expect("Failed to write test config");
+
         env::set_var("AWS_TOKEN", "test-token-123");
 
         let possible_paths = [
