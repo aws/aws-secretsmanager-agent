@@ -72,7 +72,7 @@ impl AgentQuery {
 }
 
 pub struct AgentProcess {
-    pub child: tokio::process::Child,
+    pub _child: tokio::process::Child,
     pub port: u16,
 }
 
@@ -147,7 +147,7 @@ validate_credentials = true
             }
         }
 
-        AgentProcess { child, port }
+        AgentProcess { _child: child, port }
     }
 
     pub async fn make_request(&self, query: &AgentQuery) -> String {
