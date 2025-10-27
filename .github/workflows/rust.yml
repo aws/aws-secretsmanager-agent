@@ -38,7 +38,7 @@ jobs:
         uses: ilammy/setup-nasm@v1
       - name: Install golang for aws-lc-fips-sys on macos
         if: runner.os == 'MacOS'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: "stable"
       - name: Check licenses
