@@ -128,6 +128,7 @@ validate_credentials = true
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true)
+            .env("AWS_REGION", "us-west-2")  // Ensure agent uses correct region
             .spawn()
             .expect("Failed to start agent");
 
