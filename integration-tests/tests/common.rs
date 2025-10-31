@@ -36,7 +36,7 @@ const ALL_SECRET_TYPES: [SecretType; 4] = [
     SecretType::Large,
 ];
 
-#[derive(Debug, Clone, Builder)]
+#[derive(Debug, Builder)]
 #[builder(setter(into, strip_option))]
 pub struct AgentQuery {
     pub secret_id: String,
@@ -71,9 +71,8 @@ impl AgentQuery {
     }
 }
 
-#[derive(Clone)]
 pub struct AgentProcess {
-    pub _child: std::sync::Arc<tokio::sync::Mutex<tokio::process::Child>>,
+    pub _child: tokio::process::Child,
     pub port: u16,
 }
 
@@ -149,7 +148,7 @@ validate_credentials = true
         }
 
         AgentProcess {
-            _child: std::sync::Arc::new(tokio::sync::Mutex::new(child)),
+            _child: child,
             port,
         }
     }
