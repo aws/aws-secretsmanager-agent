@@ -88,7 +88,7 @@ async fn test_cache_expiration_and_refresh() {
     // Update secret while cache is still valid
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = aws_sdk_secretsmanager::Client::new(&config);
-    
+
     client
         .update_secret()
         .secret_id(&secret_name)
@@ -112,16 +112,21 @@ async fn test_cache_expiration_and_refresh() {
     // Fourth request after TTL expiry - should fetch fresh value from AWS
     let response4 = agent.make_request(&query).await;
     let json4: serde_json::Value = serde_json::from_str(&response4).unwrap();
-    
+
     // Should now have the updated value and different version
     assert_ne!(json4["VersionId"], version1);
-    assert!(json4["SecretString"].as_str().unwrap().contains("expireduser"));
+    assert!(json4["SecretString"]
+        .as_str()
+        .unwrap()
+        .contains("expireduser"));
     assert!(!json4["SecretString"].as_str().unwrap().contains("testuser"));
 
     // Fifth request immediately after - should use newly cached value
     let response5 = agent.make_request(&query).await;
     let json5: serde_json::Value = serde_json::from_str(&response5).unwrap();
     assert_eq!(json4["VersionId"], json5["VersionId"]); // Same as previous
-    assert!(json5["SecretString"].as_str().unwrap().contains("expireduser"));
+    assert!(json5["SecretString"]
+        .as_str()
+        .unwrap()
+        .contains("expireduser"));
 }
-
