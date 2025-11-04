@@ -33,8 +33,10 @@ async fn test_refresh_now_on_updated_secret_succeeds() {
         .send()
         .await
         .expect("Failed to update secret");
-    
-    let new_version_id = update_response.version_id().expect("No version ID returned");
+
+    let new_version_id = update_response
+        .version_id()
+        .expect("No version ID returned");
 
     // Second request without refreshNow - should return stale cached value
     let response2 = agent.make_request(&query).await;
@@ -57,7 +59,10 @@ async fn test_refresh_now_on_updated_secret_succeeds() {
 
     // Should now have the updated value with new version ID and AWSCURRENT label
     assert_eq!(json3["VersionId"].as_str().unwrap(), new_version_id);
-    assert!(json3["VersionStages"].as_array().unwrap().contains(&serde_json::Value::String("AWSCURRENT".to_string())));
+    assert!(json3["VersionStages"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::Value::String("AWSCURRENT".to_string())));
     assert!(fresh_secret.contains("rotateduser"));
     assert!(!fresh_secret.contains("testuser"));
 }
@@ -98,8 +103,10 @@ async fn test_cache_expiration_and_refresh() {
         .send()
         .await
         .expect("Failed to update secret");
-    
-    let new_version_id = update_response.version_id().expect("No version ID returned");
+
+    let new_version_id = update_response
+        .version_id()
+        .expect("No version ID returned");
 
     // Third request before TTL expires - should still return cached value
     let response3 = agent.make_request(&query).await;
@@ -116,7 +123,10 @@ async fn test_cache_expiration_and_refresh() {
 
     // Should now have the updated value with new version ID and AWSCURRENT label
     assert_eq!(json4["VersionId"].as_str().unwrap(), new_version_id);
-    assert!(json4["VersionStages"].as_array().unwrap().contains(&serde_json::Value::String("AWSCURRENT".to_string())));
+    assert!(json4["VersionStages"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::Value::String("AWSCURRENT".to_string())));
     assert!(json4["SecretString"]
         .as_str()
         .unwrap()
