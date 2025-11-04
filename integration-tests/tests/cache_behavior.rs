@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 #[tokio::test]
-async fn test_stale_cache_during_secret_update() {
+async fn test_refresh_now_on_updated_secret_succeeds() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Basic);
 
@@ -26,16 +26,15 @@ async fn test_stale_cache_during_secret_update() {
     let client = aws_sdk_secretsmanager::Client::new(&config);
 
     let updated_secret_value = r#"{"username":"rotateduser","password":"rotatedpass123"}"#;
-    client
+    let update_response = client
         .update_secret()
         .secret_id(&secret_name)
         .secret_string(updated_secret_value)
         .send()
         .await
         .expect("Failed to update secret");
-
-    // Wait for the update to propagate
-    sleep(Duration::from_secs(2)).await;
+    
+    let new_version_id = update_response.version_id().expect("No version ID returned");
 
     // Second request without refreshNow - should return stale cached value
     let response2 = agent.make_request(&query).await;
@@ -56,7 +55,9 @@ async fn test_stale_cache_during_secret_update() {
     let json3: serde_json::Value = serde_json::from_str(&response3).unwrap();
     let fresh_secret = json3["SecretString"].as_str().unwrap();
 
-    // Should now have the updated value
+    // Should now have the updated value with new version ID and AWSCURRENT label
+    assert_eq!(json3["VersionId"].as_str().unwrap(), new_version_id);
+    assert!(json3["VersionStages"].as_array().unwrap().contains(&serde_json::Value::String("AWSCURRENT".to_string())));
     assert!(fresh_secret.contains("rotateduser"));
     assert!(!fresh_secret.contains("testuser"));
 }
@@ -66,8 +67,9 @@ async fn test_cache_expiration_and_refresh() {
     let secrets = TestSecrets::setup().await;
     let secret_name = secrets.secret_name(SecretType::Basic);
 
-    // Start agent with short TTL (5 seconds) for faster testing
-    let agent = AgentProcess::start_with_config(2777, 5).await;
+    // Start agent with short TTL for faster testing
+    const TTL_SECONDS: u16 = 5;
+    let agent = AgentProcess::start_with_config(2777, TTL_SECONDS).await;
 
     let query = AgentQueryBuilder::default()
         .secret_id(&secret_name)
@@ -89,16 +91,15 @@ async fn test_cache_expiration_and_refresh() {
     let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
     let client = aws_sdk_secretsmanager::Client::new(&config);
 
-    client
+    let update_response = client
         .update_secret()
         .secret_id(&secret_name)
         .secret_string(r#"{"username":"expireduser","password":"expiredpass789"}"#)
         .send()
         .await
         .expect("Failed to update secret");
-
-    // Wait for update to propagate
-    sleep(Duration::from_secs(2)).await;
+    
+    let new_version_id = update_response.version_id().expect("No version ID returned");
 
     // Third request before TTL expires - should still return cached value
     let response3 = agent.make_request(&query).await;
@@ -106,15 +107,16 @@ async fn test_cache_expiration_and_refresh() {
     assert_eq!(json3["VersionId"], version1); // Same version as cached
     assert!(json3["SecretString"].as_str().unwrap().contains("testuser"));
 
-    // Wait for TTL to expire (5 seconds + buffer)
-    sleep(Duration::from_secs(4)).await;
+    // Wait for TTL to expire (TTL + buffer to ensure expiry)
+    sleep(Duration::from_secs(TTL_SECONDS as u64 + 1)).await;
 
     // Fourth request after TTL expiry - should fetch fresh value from AWS
     let response4 = agent.make_request(&query).await;
     let json4: serde_json::Value = serde_json::from_str(&response4).unwrap();
 
-    // Should now have the updated value and different version
-    assert_ne!(json4["VersionId"], version1);
+    // Should now have the updated value with new version ID and AWSCURRENT label
+    assert_eq!(json4["VersionId"].as_str().unwrap(), new_version_id);
+    assert!(json4["VersionStages"].as_array().unwrap().contains(&serde_json::Value::String("AWSCURRENT".to_string())));
     assert!(json4["SecretString"]
         .as_str()
         .unwrap()
