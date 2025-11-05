@@ -1,8 +1,6 @@
 mod common;
 
 use common::*;
-use std::time::Duration;
-use tokio::time::sleep;
 
 #[tokio::test]
 async fn test_version_stage_transitions() {
@@ -63,9 +61,6 @@ async fn test_version_stage_transitions() {
         .send()
         .await
         .expect("Failed to promote version stage");
-
-    // Wait for the promotion to propagate
-    sleep(Duration::from_secs(3)).await;
 
     // Test that AWSCURRENT now points to the previously pending version (with refreshNow)
     let promoted_query = AgentQueryBuilder::default()

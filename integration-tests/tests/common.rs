@@ -78,10 +78,10 @@ pub struct AgentProcess {
 
 impl AgentProcess {
     pub async fn start() -> AgentProcess {
-        Self::start_with_config(2775, 5).await
+        Self::start_with_config(2775, 5_u64).await
     }
 
-    pub async fn start_with_config(port: u16, ttl_seconds: u16) -> AgentProcess {
+    pub async fn start_with_config(port: u16, ttl_seconds: u64) -> AgentProcess {
         let config_content = format!(
             r#"
 http_port = {}

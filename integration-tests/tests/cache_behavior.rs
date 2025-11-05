@@ -73,7 +73,7 @@ async fn test_cache_expiration_and_refresh() {
     let secret_name = secrets.secret_name(SecretType::Basic);
 
     // Start agent with short TTL for faster testing
-    const TTL_SECONDS: u16 = 5;
+    const TTL_SECONDS: u64 = 5;
     let agent = AgentProcess::start_with_config(2777, TTL_SECONDS).await;
 
     let query = AgentQueryBuilder::default()
