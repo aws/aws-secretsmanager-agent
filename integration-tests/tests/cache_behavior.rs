@@ -115,7 +115,7 @@ async fn test_cache_expiration_and_refresh() {
     assert!(json3["SecretString"].as_str().unwrap().contains("testuser"));
 
     // Wait for TTL to expire (TTL + buffer to ensure expiry)
-    sleep(Duration::from_secs(TTL_SECONDS as u64 + 1)).await;
+    sleep(Duration::from_secs(TTL_SECONDS + 1)).await;
 
     // Fourth request after TTL expiry - should fetch fresh value from AWS
     let response4 = agent.make_request(&query).await;
