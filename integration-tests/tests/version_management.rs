@@ -62,6 +62,16 @@ async fn test_version_stage_transitions() {
         .await
         .expect("Failed to promote version stage");
 
+    // Verify promotion worked by checking AWS directly and get updated version IDs
+    let (new_current_version_id, _) = secrets.get_version_ids(SecretType::Versioned).await;
+    assert_eq!(
+        new_current_version_id, pending_version_id,
+        "Version stage promotion failed in AWS"
+    );
+
+    // Small delay to ensure AWS propagation
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
     // Test that AWSCURRENT now points to the previously pending version (with refreshNow)
     let promoted_query = AgentQueryBuilder::default()
         .secret_id(&secret_name)
@@ -73,7 +83,7 @@ async fn test_version_stage_transitions() {
     let promoted_json: serde_json::Value = serde_json::from_str(&promoted_response).unwrap();
 
     // After promotion, AWSCURRENT should now have the pending version ID and content
-    assert_eq!(promoted_json["VersionId"], pending_version_id);
+    assert_eq!(promoted_json["VersionId"], new_current_version_id);
     assert!(promoted_json["SecretString"]
         .as_str()
         .unwrap()
