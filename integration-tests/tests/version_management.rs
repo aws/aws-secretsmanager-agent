@@ -1,10 +1,16 @@
+//! # Version Management Integration Tests
+//!
+//! This module contains integration tests for AWS Secrets Manager Agent's version management capabilities.
+//! These tests verify that the agent correctly handles secret version stages (AWSCURRENT, AWSPENDING)
+//! and version transitions during secret rotation scenarios.
+
 mod common;
 
 use common::*;
 
 #[tokio::test]
 async fn test_version_stage_transitions() {
-    let secrets = TestSecrets::setup().await;
+    let secrets = TestSecrets::setup_versioned().await;
     let secret_name = secrets.secret_name(SecretType::Versioned);
 
     let agent = AgentProcess::start().await;
