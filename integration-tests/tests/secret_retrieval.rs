@@ -201,3 +201,52 @@ async fn test_large_secret_retrieval() {
         .chars()
         .all(|c| c == 'x'));
 }
+
+#[tokio::test]
+async fn test_real_nonexistent_secret() {
+    let agent = AgentProcess::start().await;
+
+    // Generate a guaranteed non-existent secret name
+    let nonexistent_secret = format!(
+        "nonexistent-secret-{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap()
+    );
+
+    let query = AgentQueryBuilder::default()
+        .secret_id(&nonexistent_secret)
+        .build()
+        .unwrap();
+
+    // Request non-existent secret - should return proper error response
+    let response = agent.make_request_raw(&query).await;
+
+    // Should return 400 status for ResourceNotFoundException
+    assert_eq!(response.status(), 400);
+
+    let body = response.text().await.expect("Failed to read response body");
+
+    // Verify error response contains expected AWS error information
+    assert!(
+        body.contains("ResourceNotFoundException")
+            || body.contains("Secrets Manager can't find the specified secret")
+    );
+
+    // Test with refreshNow=true - should also fail consistently
+    let refresh_query = AgentQueryBuilder::default()
+        .secret_id(&nonexistent_secret)
+        .refresh_now(true)
+        .build()
+        .unwrap();
+
+    let refresh_response = agent.make_request_raw(&refresh_query).await;
+    assert_eq!(refresh_response.status(), 400);
+
+    let refresh_body = refresh_response
+        .text()
+        .await
+        .expect("Failed to read refresh response body");
+    assert!(
+        refresh_body.contains("ResourceNotFoundException")
+            || refresh_body.contains("Secrets Manager can't find the specified secret")
+    );
+}

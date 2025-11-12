@@ -34,6 +34,7 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
   - [Optional features](#optional-features)
   - [Logging](#logging)
   - [Security considerations](#security-considerations)
+  - [Running Integration Tests Locally](#integration-tests-local)
 
 ## Step 1: Build the Secrets Manager Agent binary<a name="secrets-manager-agent-build"></a>
 
@@ -487,3 +488,66 @@ You can configure logging in the [Configuration file](#secrets-manager-agent-con
 For an agent architecture, the domain of trust is where the agent endpoint and SSRF token are accessible, which is usually the entire host\. The domain of trust for the Secrets Manager Agent should match the domain where the Secrets Manager credentials are available in order to maintain the same security posture\. For example, on Amazon EC2 the domain of trust for the Secrets Manager Agent would be the same as the domain of the credentials when using roles for Amazon EC2\.
 
 Security conscious applications that are not already using an agent solution with the Secrets Manager credentials locked down to the application should consider using the language\-specific AWS SDKs or caching solutions\. For more information, see [Get secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets.html)\.
+
+## Running Integration Tests Locally<a name="integration-tests-local"></a>
+
+The AWS Secrets Manager Agent includes a comprehensive integration test suite that validates functionality against real AWS Secrets Manager. These tests cover caching behavior, security features, configuration options, version management, and error handling scenarios.
+
+### Prerequisites
+
+- AWS credentials with permissions to create, read, update, and delete secrets in AWS Secrets Manager
+- Rust toolchain installed
+- Access to an AWS account for testing
+
+### Required AWS Permissions
+
+Your AWS credentials must have the following permissions:
+- `secretsmanager:CreateSecret`
+- `secretsmanager:GetSecretValue`
+- `secretsmanager:DescribeSecret`
+- `secretsmanager:UpdateSecret`
+- `secretsmanager:UpdateSecretVersionStage`
+- `secretsmanager:PutSecretValue`
+- `secretsmanager:DeleteSecret`
+
+### Running Tests
+
+#### Option 1: Using the test script
+
+1. Assume your AWS credentials using Isengard:
+   ```sh
+   ada credentials update --account=accountid --role=roleName
+   ```
+
+2. Run the test script:
+   ```sh
+   ./test-local.sh
+   ```
+
+#### Option 2: Manual execution
+
+1. Assume your AWS credentials:
+   ```sh
+   ada credentials update --account=accountid --role=roleName
+   ```
+
+2. Build the agent binary:
+   ```sh
+   cargo build
+   ```
+
+3. Run the integration tests:
+   ```sh
+   cd integration-tests
+   cargo test -- --test-threads=1
+   ```
+
+### Test Organization
+
+The integration tests are organized into the following modules:
+
+- **`secret_retrieval.rs`** - Tests core secret retrieval functionality including name/ARN lookup, binary secrets, large secrets, and error handling
+- **`cache_behavior.rs`** - Tests caching mechanisms including TTL expiration, cache size limits, concurrent access, and cache bypass
+- **`security.rs`** - Tests security features including SSRF token validation and X-Forwarded-For header rejection
+- **`version_management.rs`** - Tests secret version transitions and rotation scenarios
+- **`configuration.rs`** - Tests configuration parameters including connection limits, health checks, and path-based requests
