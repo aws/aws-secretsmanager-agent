@@ -514,10 +514,7 @@ Your AWS credentials must have the following permissions:
 
 #### Option 1: Using the test script
 
-1. Assume your AWS credentials using Isengard:
-   ```sh
-   ada credentials update --account=accountid --role=roleName
-   ```
+1. Configure your AWS credentials with appropriate permissions
 
 2. Run the test script:
    ```sh
@@ -526,10 +523,7 @@ Your AWS credentials must have the following permissions:
 
 #### Option 2: Manual execution
 
-1. Assume your AWS credentials:
-   ```sh
-   ada credentials update --account=accountid --role=roleName
-   ```
+1. Configure your AWS credentials with appropriate permissions
 
 2. Build the agent binary:
    ```sh
