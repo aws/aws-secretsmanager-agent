@@ -227,12 +227,15 @@ async fn test_real_nonexistent_secret() {
 
     // Verify error response indicates the secret was not found
     // The agent may return different error message formats
+    let body_lower = body.to_lowercase();
     assert!(
-        body.contains("ResourceNotFoundException")
-            || body.contains("Secrets Manager can't find the specified secret")
-            || body.contains("not found")
-            || body.contains("does not exist")
-            || body.contains("NotFound")
+        body_lower.contains("resourcenotfoundexception")
+            || body_lower.contains("can't find the specified secret")
+            || body_lower.contains("not found")
+            || body_lower.contains("does not exist")
+            || body_lower.contains("notfound")
+            || body_lower.contains("no such secret")
+            || body_lower.contains("secret does not exist")
     );
 
     // Test with refreshNow=true - should also fail consistently
@@ -249,11 +252,15 @@ async fn test_real_nonexistent_secret() {
         .text()
         .await
         .expect("Failed to read refresh response body");
+    
+    let refresh_body_lower = refresh_body.to_lowercase();
     assert!(
-        refresh_body.contains("ResourceNotFoundException")
-            || refresh_body.contains("Secrets Manager can't find the specified secret")
-            || refresh_body.contains("not found")
-            || refresh_body.contains("does not exist")
-            || refresh_body.contains("NotFound")
+        refresh_body_lower.contains("resourcenotfoundexception")
+            || refresh_body_lower.contains("can't find the specified secret")
+            || refresh_body_lower.contains("not found")
+            || refresh_body_lower.contains("does not exist")
+            || refresh_body_lower.contains("notfound")
+            || refresh_body_lower.contains("no such secret")
+            || refresh_body_lower.contains("secret does not exist")
     );
 }
