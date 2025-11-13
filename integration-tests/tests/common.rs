@@ -82,7 +82,74 @@ impl AgentProcess {
     }
 
     pub async fn start_with_config(port: u16, ttl_seconds: u64) -> AgentProcess {
-        Self::start_with_full_config(port, ttl_seconds, 100).await
+        let config_content = format!(
+            r#"
+http_port = {}
+log_level = "info"
+ttl_seconds = {}
+validate_credentials = true
+"#,
+            port, ttl_seconds
+        );
+
+        let config_path = format!("/tmp/test_config_{}.toml", port);
+        std::fs::write(&config_path, config_content).expect("Failed to write test config");
+
+        env::set_var("AWS_TOKEN", "test-token-123");
+
+        let possible_paths = [
+            PathBuf::from("target")
+                .join("release")
+                .join("aws_secretsmanager_agent"),
+            PathBuf::from("target")
+                .join("debug")
+                .join("aws_secretsmanager_agent"),
+            PathBuf::from("..")
+                .join("target")
+                .join("release")
+                .join("aws_secretsmanager_agent"),
+            PathBuf::from("..")
+                .join("target")
+                .join("debug")
+                .join("aws_secretsmanager_agent"),
+        ];
+
+        let agent_path = possible_paths
+            .iter()
+            .find(|path| path.exists())
+            .expect("Agent binary not found");
+
+        let mut child = TokioCommand::new(agent_path)
+            .arg("--config")
+            .arg(&config_path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .expect("Failed to start agent");
+
+        // Read stdout until we see the "listening" message
+        let stdout = child.stdout.take().expect("Failed to get stdout");
+        let mut reader = BufReader::new(stdout).lines();
+
+        match reader.next_line().await {
+            Ok(Some(line)) => {
+                if !line.contains("listening on") {
+                    panic!("Agent failed to start - no listening message found");
+                }
+            }
+            Ok(None) => {
+                panic!("Stream ended without finding listening message");
+            }
+            Err(e) => {
+                panic!("Failed to read agent output: {}", e);
+            }
+        }
+
+        AgentProcess {
+            _child: child,
+            port,
+        }
     }
 
     pub async fn make_request(&self, query: &AgentQuery) -> String {
