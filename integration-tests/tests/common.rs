@@ -152,6 +152,7 @@ validate_credentials = true
         }
     }
 
+    #[allow(dead_code)]
     pub async fn make_request(&self, query: &AgentQuery) -> String {
         let response = self.make_request_raw(query).await;
         let status = response.status();
