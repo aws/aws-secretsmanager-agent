@@ -8,7 +8,6 @@ mod common;
 
 use common::*;
 
-
 #[tokio::test]
 async fn test_ping_endpoint_health_check() {
     let agent = AgentProcess::start().await;

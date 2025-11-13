@@ -85,8 +85,6 @@ impl AgentProcess {
         Self::start_with_full_config(port, ttl_seconds, 100).await
     }
 
-
-
     pub async fn make_request(&self, query: &AgentQuery) -> String {
         let response = self.make_request_raw(query).await;
         let status = response.status();

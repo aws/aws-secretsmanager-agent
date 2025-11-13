@@ -138,9 +138,6 @@ async fn test_cache_expiration_and_refresh() {
         .contains("expireduser"));
 }
 
-
-
-
 #[tokio::test]
 async fn test_ttl_zero_disables_caching() {
     let secrets = TestSecrets::setup_basic().await;
