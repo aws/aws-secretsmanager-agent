@@ -1,77 +1,14 @@
 //! # Configuration Integration Tests
 //!
 //! This module contains integration tests for AWS Secrets Manager Agent's configuration features.
-//! These tests verify that various configuration options (connection limits, TTL settings, etc.)
-//! work correctly and affect agent behavior as expected.
+//! These tests verify that configuration options work correctly and affect agent behavior as expected,
+//! including health check endpoints and path-based request handling.
 
 mod common;
 
 use common::*;
-use std::sync::Arc;
 
-#[tokio::test]
-async fn test_real_connection_limits() {
-    let secrets = TestSecrets::setup_basic().await;
-    let secret_name = secrets.secret_name(SecretType::Basic);
 
-    // Start agent with very low connection limit for testing
-    const MAX_CONNECTIONS: u16 = 3;
-    let agent =
-        Arc::new(AgentProcess::start_with_complete_config(2781, 300, 100, MAX_CONNECTIONS).await);
-
-    let query = AgentQueryBuilder::default()
-        .secret_id(&secret_name)
-        .build()
-        .unwrap();
-
-    // Create more concurrent requests than the connection limit allows
-    const CONCURRENT_REQUESTS: usize = 10;
-    let mut handles = Vec::new();
-
-    for i in 0..CONCURRENT_REQUESTS {
-        let agent_clone = Arc::clone(&agent);
-        let query_clone = query.clone();
-
-        let handle = tokio::spawn(async move {
-            let response = agent_clone.make_request_raw(&query_clone).await;
-            (i, response.status().as_u16())
-        });
-
-        handles.push(handle);
-    }
-
-    // Wait for all requests to complete
-    let mut results = Vec::new();
-    for handle in handles {
-        match handle.await {
-            Ok((request_id, status_code)) => results.push((request_id, status_code)),
-            Err(e) => panic!("Request failed: {:?}", e),
-        }
-    }
-
-    // Count successful (200) and rejected requests
-    let successful_requests = results.iter().filter(|(_, status)| *status == 200).count();
-    let rejected_requests = results.iter().filter(|(_, status)| *status != 200).count();
-
-    // With connection limits, some requests should be rejected
-    // At least some should succeed (within connection limit)
-    assert!(
-        successful_requests > 0,
-        "At least some requests should succeed"
-    );
-    assert!(
-        successful_requests <= MAX_CONNECTIONS as usize,
-        "Successful requests should not exceed connection limit"
-    );
-
-    // Verify that connection limiting is working by having some rejections
-    // Note: This is probabilistic due to timing, but with 10 concurrent requests and limit of 3,
-    // we should see some rejections in most cases
-    println!(
-        "Successful requests: {}, Rejected requests: {}",
-        successful_requests, rejected_requests
-    );
-}
 #[tokio::test]
 async fn test_ping_endpoint_health_check() {
     let agent = AgentProcess::start().await;

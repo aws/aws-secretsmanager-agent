@@ -541,7 +541,7 @@ Your AWS credentials must have the following permissions:
 The integration tests are organized into the following modules:
 
 - **`secret_retrieval.rs`** - Tests core secret retrieval functionality including name/ARN lookup, binary secrets, large secrets, and error handling
-- **`cache_behavior.rs`** - Tests caching mechanisms including TTL expiration, cache size limits, concurrent access, and cache bypass
+- **`cache_behavior.rs`** - Tests caching mechanisms including TTL expiration, refreshNow parameter, and cache bypass (TTL=0)
 - **`security.rs`** - Tests security features including SSRF token validation and X-Forwarded-For header rejection
 - **`version_management.rs`** - Tests secret version transitions and rotation scenarios
-- **`configuration.rs`** - Tests configuration parameters including connection limits, health checks, and path-based requests
+- **`configuration.rs`** - Tests configuration parameters including health checks and path-based requests
