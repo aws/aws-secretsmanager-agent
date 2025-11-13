@@ -13,4 +13,5 @@ aws-config = "1"
 aws-sdk-secretsmanager = "1"
 url = "2"
 derive_builder = "0.20"
+chrono = "0.4"
 

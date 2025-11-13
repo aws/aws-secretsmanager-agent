@@ -36,7 +36,7 @@ impl fmt::Display for SecretType {
     }
 }
 
-#[derive(Debug, Builder)]
+#[derive(Debug, Clone, Builder)]
 #[builder(setter(into, strip_option))]
 pub struct AgentQuery {
     pub secret_id: String,
@@ -87,7 +87,6 @@ impl AgentProcess {
 http_port = {}
 log_level = "info"
 ttl_seconds = {}
-cache_size = 100
 validate_credentials = true
 "#,
             port, ttl_seconds
@@ -153,7 +152,21 @@ validate_credentials = true
         }
     }
 
+    #[allow(dead_code)]
     pub async fn make_request(&self, query: &AgentQuery) -> String {
+        let response = self.make_request_raw(query).await;
+        let status = response.status();
+        if status != 200 {
+            let error_body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read error body".to_string());
+            panic!("Agent returned status {}: {}", status, error_body);
+        }
+        response.text().await.expect("Failed to read response body")
+    }
+
+    pub async fn make_request_raw(&self, query: &AgentQuery) -> reqwest::Response {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .connect_timeout(Duration::from_secs(5))
@@ -166,22 +179,142 @@ validate_credentials = true
         .expect("Failed to parse URL");
         url.set_query(Some(&query.to_query_string()));
 
-        let response = client
+        // CodeQL suppression: This is localhost-only communication in test environment
+        // The agent is designed to only accept requests on localhost for security
+        client
             .get(url)
             .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
             .send()
             .await
-            .expect("Failed to make agent request");
+            .expect("Failed to make agent request")
+    }
 
-        let status = response.status();
-        if status != 200 {
-            let error_body = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Failed to read error body".to_string());
-            panic!("Agent returned status {}: {}", status, error_body);
-        }
-        response.text().await.expect("Failed to read response body")
+    #[allow(dead_code)]
+    pub async fn make_request_without_token(&self, query: &AgentQuery) -> reqwest::Response {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to build HTTP client");
+        let mut url = Url::parse(&format!(
+            "http://localhost:{}/secretsmanager/get",
+            self.port
+        ))
+        .expect("Failed to parse URL");
+        url.set_query(Some(&query.to_query_string()));
+
+        // CodeQL suppression: This is localhost-only communication in test environment
+        client
+            .get(url)
+            .send()
+            .await
+            .expect("Failed to make agent request")
+    }
+
+    #[allow(dead_code)]
+    pub async fn make_request_with_invalid_token(&self, query: &AgentQuery) -> reqwest::Response {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to build HTTP client");
+        let mut url = Url::parse(&format!(
+            "http://localhost:{}/secretsmanager/get",
+            self.port
+        ))
+        .expect("Failed to parse URL");
+        url.set_query(Some(&query.to_query_string()));
+
+        // CodeQL suppression: This is localhost-only communication in test environment
+        client
+            .get(url)
+            .header("X-Aws-Parameters-Secrets-Token", "invalid-token-456")
+            .send()
+            .await
+            .expect("Failed to make agent request")
+    }
+
+    #[allow(dead_code)]
+    pub async fn make_request_with_x_forwarded_for(&self, query: &AgentQuery) -> reqwest::Response {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to build HTTP client");
+        let mut url = Url::parse(&format!(
+            "http://localhost:{}/secretsmanager/get",
+            self.port
+        ))
+        .expect("Failed to parse URL");
+        url.set_query(Some(&query.to_query_string()));
+
+        // CodeQL suppression: This is localhost-only communication in test environment
+        client
+            .get(url)
+            .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
+            .header("X-Forwarded-For", "192.168.1.100")
+            .send()
+            .await
+            .expect("Failed to make agent request")
+    }
+
+    #[allow(dead_code)]
+    pub async fn make_ping_request(&self) -> reqwest::Response {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to build HTTP client");
+        let url = Url::parse(&format!("http://localhost:{}/ping", self.port))
+            .expect("Failed to parse URL");
+
+        // CodeQL suppression: This is localhost-only communication in test environment
+        client
+            .get(url)
+            .send()
+            .await
+            .expect("Failed to make ping request")
+    }
+
+    #[allow(dead_code)]
+    pub async fn make_ping_request_with_token(&self) -> reqwest::Response {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to build HTTP client");
+        let url = Url::parse(&format!("http://localhost:{}/ping", self.port))
+            .expect("Failed to parse URL");
+
+        // CodeQL suppression: This is localhost-only communication in test environment
+        client
+            .get(url)
+            .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
+            .send()
+            .await
+            .expect("Failed to make ping request")
+    }
+
+    #[allow(dead_code)]
+    pub async fn make_path_based_request(&self, secret_name: &str) -> reqwest::Response {
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .connect_timeout(Duration::from_secs(5))
+            .build()
+            .expect("Failed to build HTTP client");
+        let url = Url::parse(&format!(
+            "http://localhost:{}/v1/{}",
+            self.port, secret_name
+        ))
+        .expect("Failed to parse URL");
+
+        // CodeQL suppression: This is localhost-only communication in test environment
+        client
+            .get(url)
+            .header("X-Aws-Parameters-Secrets-Token", "test-token-123")
+            .send()
+            .await
+            .expect("Failed to make path-based request")
     }
 }
 

@@ -1,8 +1,8 @@
 //! # Cache Behavior Integration Tests
 //!
 //! This module contains integration tests for AWS Secrets Manager Agent's caching functionality.
-//! These tests verify that the agent correctly caches secrets, respects TTL settings, and handles
-//! cache refresh scenarios including the refreshNow parameter.
+//! These tests verify that the agent correctly caches secrets, respects TTL settings, handles
+//! cache refresh scenarios including the refreshNow parameter, and supports cache bypass (TTL=0).
 
 mod common;
 
@@ -136,4 +136,62 @@ async fn test_cache_expiration_and_refresh() {
         .as_str()
         .unwrap()
         .contains("expireduser"));
+}
+
+#[tokio::test]
+async fn test_ttl_zero_disables_caching() {
+    let secrets = TestSecrets::setup_basic().await;
+    let secret_name = secrets.secret_name(SecretType::Basic);
+
+    // Start agent with TTL=0 to disable caching
+    const TTL_SECONDS: u64 = 0;
+    let agent = AgentProcess::start_with_config(2780, TTL_SECONDS).await;
+
+    let query = AgentQueryBuilder::default()
+        .secret_id(&secret_name)
+        .build()
+        .unwrap();
+
+    // First request - should fetch from AWS
+    let response1 = agent.make_request(&query).await;
+    let json1: serde_json::Value = serde_json::from_str(&response1).unwrap();
+    let version1 = json1["VersionId"].as_str().unwrap();
+    assert!(json1["SecretString"].as_str().unwrap().contains("testuser"));
+
+    // Update secret immediately
+    let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
+    let client = aws_sdk_secretsmanager::Client::new(&config);
+
+    let update_response = client
+        .update_secret()
+        .secret_id(&secret_name)
+        .secret_string(r#"{"username":"nocacheuser","password":"nocachepass456"}"#)
+        .send()
+        .await
+        .expect("Failed to update secret");
+
+    let new_version_id = update_response
+        .version_id()
+        .expect("No version ID returned");
+
+    // Allow time for update to propagate
+    sleep(Duration::from_millis(500)).await;
+
+    // Second request - with TTL=0, should always fetch fresh value from AWS
+    let response2 = agent.make_request(&query).await;
+    let json2: serde_json::Value = serde_json::from_str(&response2).unwrap();
+
+    // Should immediately have the updated value (no caching)
+    assert_eq!(json2["VersionId"].as_str().unwrap(), new_version_id);
+    assert!(json2["VersionStages"]
+        .as_array()
+        .unwrap()
+        .contains(&serde_json::Value::String("AWSCURRENT".to_string())));
+    assert!(json2["SecretString"]
+        .as_str()
+        .unwrap()
+        .contains("nocacheuser"));
+
+    // Verify version changed (proving no caching occurred)
+    assert_ne!(version1, new_version_id);
 }

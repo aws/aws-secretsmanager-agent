@@ -68,28 +68,34 @@ async fn test_version_stage_transitions() {
         .await
         .expect("Failed to promote version stage");
 
-    // Verify promotion worked by checking AWS directly and get updated version IDs
-    let (new_current_version_id, _) = secrets.get_version_ids(SecretType::Versioned).await;
-    assert_eq!(
-        new_current_version_id, pending_version_id,
-        "Version stage promotion failed in AWS"
-    );
+    // Wait for promotion to be reflected in agent with retry logic
+    // This handles both AWS propagation and agent cache refresh
+    let mut promoted_json = None;
+    for attempt in 0..10 {
+        let promoted_query = AgentQueryBuilder::default()
+            .secret_id(&secret_name)
+            .version_stage("AWSCURRENT")
+            .refresh_now(true)
+            .build()
+            .unwrap();
+        let promoted_response = agent.make_request(&promoted_query).await;
+        let json: serde_json::Value = serde_json::from_str(&promoted_response).unwrap();
 
-    // Small delay to ensure AWS propagation
-    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        if json["VersionId"].as_str().unwrap() == pending_version_id {
+            promoted_json = Some(json);
+            break;
+        }
 
-    // Test that AWSCURRENT now points to the previously pending version (with refreshNow)
-    let promoted_query = AgentQueryBuilder::default()
-        .secret_id(&secret_name)
-        .version_stage("AWSCURRENT")
-        .refresh_now(true)
-        .build()
-        .unwrap();
-    let promoted_response = agent.make_request(&promoted_query).await;
-    let promoted_json: serde_json::Value = serde_json::from_str(&promoted_response).unwrap();
+        if attempt < 9 {
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        }
+    }
+
+    let promoted_json =
+        promoted_json.expect("Version promotion not reflected in agent after retries");
 
     // After promotion, AWSCURRENT should now have the pending version ID and content
-    assert_eq!(promoted_json["VersionId"], new_current_version_id);
+    assert_eq!(promoted_json["VersionId"], pending_version_id);
     assert!(promoted_json["SecretString"]
         .as_str()
         .unwrap()
