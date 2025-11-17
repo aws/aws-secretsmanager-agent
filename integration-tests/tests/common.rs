@@ -1,3 +1,9 @@
+//! # Integration Test Common Utilities
+//!
+//! This module provides shared utilities and helper functions for AWS Secrets Manager Agent
+//! integration tests. It includes test secret management, agent process control, and
+//! HTTP request building functionality.
+
 use aws_config;
 use aws_sdk_secretsmanager;
 use derive_builder::Builder;
@@ -11,6 +17,7 @@ use tokio::process::Command as TokioCommand;
 use url::Url;
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum SecretType {
     Basic,
     Binary,
@@ -28,13 +35,6 @@ impl fmt::Display for SecretType {
         }
     }
 }
-
-const ALL_SECRET_TYPES: [SecretType; 4] = [
-    SecretType::Basic,
-    SecretType::Binary,
-    SecretType::Versioned,
-    SecretType::Large,
-];
 
 #[derive(Debug, Builder)]
 #[builder(setter(into, strip_option))]
@@ -72,16 +72,16 @@ impl AgentQuery {
 }
 
 pub struct AgentProcess {
-    pub child: tokio::process::Child,
+    pub _child: tokio::process::Child,
     pub port: u16,
 }
 
 impl AgentProcess {
     pub async fn start() -> AgentProcess {
-        Self::start_with_config(2775, 5).await
+        Self::start_with_config(2775, 5_u64).await
     }
 
-    pub async fn start_with_config(port: u16, ttl_seconds: u16) -> AgentProcess {
+    pub async fn start_with_config(port: u16, ttl_seconds: u64) -> AgentProcess {
         let config_content = format!(
             r#"
 http_port = {}
@@ -147,7 +147,10 @@ validate_credentials = true
             }
         }
 
-        AgentProcess { child, port }
+        AgentProcess {
+            _child: child,
+            port,
+        }
     }
 
     pub async fn make_request(&self, query: &AgentQuery) -> String {
@@ -184,6 +187,7 @@ validate_credentials = true
 
 pub struct TestSecrets {
     pub prefix: String,
+    pub created_types: Vec<SecretType>,
 }
 
 impl TestSecrets {
@@ -191,82 +195,108 @@ impl TestSecrets {
         format!("{}-{}", self.prefix, secret_type)
     }
 
-    pub async fn setup() -> Self {
-        let test_prefix = format!(
-            "aws-sm-agent-test-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        );
+    #[allow(dead_code)]
+    pub async fn setup_basic() -> Self {
+        Self::setup_with_types(vec![SecretType::Basic]).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn setup_binary() -> Self {
+        Self::setup_with_types(vec![SecretType::Binary]).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn setup_versioned() -> Self {
+        Self::setup_with_types(vec![SecretType::Versioned]).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn setup_large() -> Self {
+        Self::setup_with_types(vec![SecretType::Large]).await
+    }
+
+    async fn setup_with_types(types: Vec<SecretType>) -> Self {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+
+        let test_prefix = format!("aws-sm-agent-test-{}", timestamp);
 
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_secretsmanager::Client::new(&config);
 
         let temp_secrets = Self {
             prefix: test_prefix.clone(),
+            created_types: types.clone(),
         };
 
-        // Create basic test secret
-        let secret_name = temp_secrets.secret_name(SecretType::Basic);
-        client
-            .create_secret()
-            .name(&secret_name)
-            .description("Basic test secret for aws-secretsmanager-agent")
-            .secret_string(r#"{"username":"testuser","password":"testpass123"}"#)
-            .send()
-            .await
-            .expect("Failed to create test secret");
+        for secret_type in types {
+            match secret_type {
+                SecretType::Basic => {
+                    let secret_name = temp_secrets.secret_name(SecretType::Basic);
+                    client
+                        .create_secret()
+                        .name(&secret_name)
+                        .description("Basic test secret for aws-secretsmanager-agent")
+                        .secret_string(r#"{"username":"testuser","password":"testpass123"}"#)
+                        .send()
+                        .await
+                        .expect("Failed to create test secret");
+                }
+                SecretType::Binary => {
+                    let binary_secret_name = temp_secrets.secret_name(SecretType::Binary);
+                    let binary_data = b"\x00\x01\x02\x03\xFF\xFE\xFD";
+                    client
+                        .create_secret()
+                        .name(&binary_secret_name)
+                        .description("Binary test secret for aws-secretsmanager-agent")
+                        .secret_binary(aws_sdk_secretsmanager::primitives::Blob::new(binary_data))
+                        .send()
+                        .await
+                        .expect("Failed to create binary test secret");
+                }
+                SecretType::Versioned => {
+                    let versioned_secret_name = temp_secrets.secret_name(SecretType::Versioned);
+                    client
+                        .create_secret()
+                        .name(&versioned_secret_name)
+                        .description("Versioned test secret for aws-secretsmanager-agent")
+                        .secret_string(r#"{"username":"currentuser","password":"currentpass"}"#)
+                        .send()
+                        .await
+                        .expect("Failed to create versioned test secret");
 
-        // Create binary test secret
-        let binary_secret_name = temp_secrets.secret_name(SecretType::Binary);
-        let binary_data = b"\x00\x01\x02\x03\xFF\xFE\xFD";
-        client
-            .create_secret()
-            .name(&binary_secret_name)
-            .description("Binary test secret for aws-secretsmanager-agent")
-            .secret_binary(aws_sdk_secretsmanager::primitives::Blob::new(binary_data))
-            .send()
-            .await
-            .expect("Failed to create binary test secret");
-
-        // Create versioned test secret
-        let versioned_secret_name = temp_secrets.secret_name(SecretType::Versioned);
-        client
-            .create_secret()
-            .name(&versioned_secret_name)
-            .description("Versioned test secret for aws-secretsmanager-agent")
-            .secret_string(r#"{"username":"currentuser","password":"currentpass"}"#)
-            .send()
-            .await
-            .expect("Failed to create versioned test secret");
-
-        // Create AWSPENDING version using put_secret_value
-        client
-            .put_secret_value()
-            .secret_id(&versioned_secret_name)
-            .secret_string(r#"{"username":"pendinguser","password":"pendingpass"}"#)
-            .version_stages("AWSPENDING")
-            .send()
-            .await
-            .expect("Failed to create AWSPENDING version");
-
-        // Create large test secret (near 64KB limit)
-        let large_secret_name = temp_secrets.secret_name(SecretType::Large);
-        let large_data = "x".repeat(60000); // ~60KB of data
-        let large_secret_json = format!(r#"{{"data":"{}","size":"60KB"}}"#, large_data);
-        client
-            .create_secret()
-            .name(&large_secret_name)
-            .description("Large test secret for aws-secretsmanager-agent")
-            .secret_string(&large_secret_json)
-            .send()
-            .await
-            .expect("Failed to create large test secret");
+                    // Create AWSPENDING version using put_secret_value
+                    client
+                        .put_secret_value()
+                        .secret_id(&versioned_secret_name)
+                        .secret_string(r#"{"username":"pendinguser","password":"pendingpass"}"#)
+                        .version_stages("AWSPENDING")
+                        .send()
+                        .await
+                        .expect("Failed to create AWSPENDING version");
+                }
+                SecretType::Large => {
+                    let large_secret_name = temp_secrets.secret_name(SecretType::Large);
+                    let large_data = "x".repeat(60000); // ~60KB of data
+                    let large_secret_json = format!(r#"{{"data":"{}","size":"60KB"}}"#, large_data);
+                    client
+                        .create_secret()
+                        .name(&large_secret_name)
+                        .description("Large test secret for aws-secretsmanager-agent")
+                        .secret_string(&large_secret_json)
+                        .send()
+                        .await
+                        .expect("Failed to create large test secret");
+                }
+            }
+        }
 
         temp_secrets
     }
 
+    #[allow(dead_code)]
     pub async fn wait_for_pending_version(
         &self,
         secret_type: SecretType,
@@ -283,6 +313,7 @@ impl TestSecrets {
         .await
     }
 
+    #[allow(dead_code)]
     pub async fn get_version_ids(&self, secret_type: SecretType) -> (String, String) {
         let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
         let client = aws_sdk_secretsmanager::Client::new(&config);
@@ -315,11 +346,12 @@ impl TestSecrets {
 impl Drop for TestSecrets {
     fn drop(&mut self) {
         let prefix = self.prefix.clone();
+        let created_types = self.created_types.clone();
         tokio::spawn(async move {
             let config = aws_config::load_defaults(aws_config::BehaviorVersion::latest()).await;
             let client = aws_sdk_secretsmanager::Client::new(&config);
 
-            for secret_type in ALL_SECRET_TYPES {
+            for secret_type in created_types {
                 let secret_name = format!("{}-{}", prefix, secret_type);
                 let _ = client
                     .delete_secret()

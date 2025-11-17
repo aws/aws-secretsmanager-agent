@@ -1,11 +1,16 @@
+//! # Secret Retrieval Integration Tests
+//!
+//! This module contains integration tests for AWS Secrets Manager Agent's core secret retrieval functionality.
+//! These tests verify that the agent can correctly fetch different types of secrets using various
+//! identification methods and handle different secret formats.
+
 mod common;
 
 use common::*;
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_name() {
-    let secrets = TestSecrets::setup().await;
+    let secrets = TestSecrets::setup_basic().await;
     let secret_name = secrets.secret_name(SecretType::Basic);
 
     let agent = AgentProcess::start().await;
@@ -23,9 +28,8 @@ async fn test_secret_retrieval_by_name() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_secret_retrieval_by_arn() {
-    let secrets = TestSecrets::setup().await;
+    let secrets = TestSecrets::setup_basic().await;
     let secret_name = secrets.secret_name(SecretType::Basic);
 
     // Get the ARN using AWS SDK
@@ -52,9 +56,8 @@ async fn test_secret_retrieval_by_arn() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_binary_secret_retrieval() {
-    let secrets = TestSecrets::setup().await;
+    let secrets = TestSecrets::setup_binary().await;
     let secret_name = secrets.secret_name(SecretType::Binary);
 
     let agent = AgentProcess::start().await;
@@ -72,9 +75,8 @@ async fn test_binary_secret_retrieval() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_version_stage_retrieval() {
-    let secrets = TestSecrets::setup().await;
+    let secrets = TestSecrets::setup_versioned().await;
     let secret_name = secrets.secret_name(SecretType::Versioned);
 
     // Wait for AWSPENDING version to be available
@@ -124,9 +126,8 @@ async fn test_version_stage_retrieval() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_version_id_retrieval() {
-    let secrets = TestSecrets::setup().await;
+    let secrets = TestSecrets::setup_versioned().await;
     let secret_name = secrets.secret_name(SecretType::Versioned);
 
     // Wait for AWSPENDING version to be available
@@ -174,9 +175,8 @@ async fn test_version_id_retrieval() {
 }
 
 #[tokio::test]
-#[ignore = "integration test - requires AWS credentials"]
 async fn test_large_secret_retrieval() {
-    let secrets = TestSecrets::setup().await;
+    let secrets = TestSecrets::setup_large().await;
     let secret_name = secrets.secret_name(SecretType::Large);
 
     let agent = AgentProcess::start().await;
