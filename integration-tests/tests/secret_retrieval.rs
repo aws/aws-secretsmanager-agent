@@ -209,7 +209,10 @@ async fn test_real_nonexistent_secret() {
     // Generate a guaranteed non-existent secret name
     let nonexistent_secret = format!(
         "nonexistent-secret-{}",
-        chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     );
 
     let query = AgentQueryBuilder::default()
