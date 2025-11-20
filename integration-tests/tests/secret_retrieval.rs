@@ -201,3 +201,58 @@ async fn test_large_secret_retrieval() {
         .chars()
         .all(|c| c == 'x'));
 }
+
+#[tokio::test]
+async fn test_real_nonexistent_secret() {
+    let agent = AgentProcess::start().await;
+
+    // Generate a guaranteed non-existent secret name
+    let nonexistent_secret = format!(
+        "nonexistent-secret-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+
+    let query = AgentQueryBuilder::default()
+        .secret_id(&nonexistent_secret)
+        .build()
+        .unwrap();
+
+    // Request non-existent secret - should return proper error response
+    let response = agent.make_request_raw(&query).await;
+
+    // Should return 400 status for ResourceNotFoundException
+    assert_eq!(response.status(), 400);
+
+    let body = response.text().await.expect("Failed to read response body");
+
+    // For a 400 status with non-existent secret, any non-empty response is acceptable
+    // The specific error format may vary between environments
+    assert!(
+        !body.is_empty(),
+        "Expected error response body to be non-empty"
+    );
+
+    // Test with refreshNow=true - should also fail consistently
+    let refresh_query = AgentQueryBuilder::default()
+        .secret_id(&nonexistent_secret)
+        .refresh_now(true)
+        .build()
+        .unwrap();
+
+    let refresh_response = agent.make_request_raw(&refresh_query).await;
+    assert_eq!(refresh_response.status(), 400);
+
+    let refresh_body = refresh_response
+        .text()
+        .await
+        .expect("Failed to read refresh response body");
+
+    // For a 400 status with non-existent secret, any non-empty response is acceptable
+    assert!(
+        !refresh_body.is_empty(),
+        "Expected refresh error response body to be non-empty"
+    );
+}
