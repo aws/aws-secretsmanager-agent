@@ -1,0 +1,37 @@
+[package]
+name = "aws_secretsmanager_agent-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+hyper = { version = "1", features = ["http1", "server"] }
+http = "1"
+
+[dependencies.aws_secretsmanager_agent]
+path = "../aws_secretsmanager_agent"
+
+[[bin]]
+name = "fuzz_query_parser"
+path = "fuzz_targets/fuzz_query_parser.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_token_validator"
+path = "fuzz_targets/fuzz_token_validator.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_http_headers"
+path = "fuzz_targets/fuzz_http_headers.rs"
+test = false
+doc = false
+bench = false

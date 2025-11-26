@@ -59,7 +59,6 @@ pub fn err_response(err_code: &str, msg: &str) -> String {
 ///
 /// * `Ok(String)` - The SSRF token value.
 /// * `Err(Error)` - Error indicating that the variable is not set or could not be read.
-#[doc(hidden)]
 pub fn get_token(config: &Config) -> Result<String, Box<dyn std::error::Error>> {
     // Iterate through the env name list looking for the first variable set
     #[allow(clippy::redundant_closure)]
