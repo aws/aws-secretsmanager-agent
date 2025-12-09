@@ -1,0 +1,69 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+  pull_request_target:
+    types: [labeled]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    
+    # Run if:
+    # 1. Manual trigger or push to main, OR
+    # 2. PR with "safe-to-test" label
+    if: |
+      github.event_name != 'pull_request_target' ||
+      contains(github.event.pull_request.labels.*.name, 'safe-to-test')
+    
+    permissions:
+      id-token: write
+      contents: read
+      issues: write
+      pull-requests: write
+
+    env:
+      LABEL_NAME: safe-to-test
+      REPO: ${{ github.event.pull_request.base.repo.full_name }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    
+    steps:
+    - name: Remove label
+      run: |
+        echo "Removing label '$LABEL_NAME' from PR #$PR_NUMBER on repo $REPO" 
+        gh_status=$(gh api "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL_NAME" -X DELETE | jq 'if type == "object" then .status else empty end' --raw-output)
+        case $gh_status in
+          "") echo "Label removed" ;;
+          404) echo "Label not found — ignoring" ;;
+          *) echo "unexpected HTTP $gh_status" && exit 1 ;;
+        esac
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+      
+      - name: Install Rust stable
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      
+      - name: Run benchmarks
+        run: |
+          cd aws_secretsmanager_caching
+          cargo bench --bench benchmark
+      
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: aws_secretsmanager_caching/target/criterion/
+          retention-days: 30
