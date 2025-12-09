@@ -48,22 +48,22 @@ jobs:
       uses: actions/checkout@v5
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
-      
-      - name: Install Rust stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
-      
-      - name: Run benchmarks
-        run: |
-          cd aws_secretsmanager_caching
-          cargo bench --bench benchmark
-      
-      - name: Upload benchmark results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results-${{ github.sha }}
-          path: aws_secretsmanager_caching/target/criterion/
-          retention-days: 30
+    
+    - name: Install Rust stable
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Run benchmarks
+      run: |
+        cd aws_secretsmanager_caching
+        cargo bench --bench benchmark
+    
+    - name: Upload benchmark results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results-${{ github.sha }}
+        path: aws_secretsmanager_caching/target/criterion/
+        retention-days: 30
