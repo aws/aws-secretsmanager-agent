@@ -4,8 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: ["main"]
-  pull_request_target:
-    types: [labeled]
+  pull_request:
+    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
