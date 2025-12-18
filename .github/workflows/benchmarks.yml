@@ -37,5 +37,5 @@ jobs:
       with:
         name: benchmark-results-${{ github.sha }}
         path: target/criterion/
-        if-no-files-found: warn
+        if-no-files-found: error
         retention-days: 30
