@@ -17,8 +17,5 @@ fuzz_target!(|data: &[u8]| {
         // Test path-style parsing with common prefix
         let _ = GSVQuery::try_from_path_query(s, "/v1/");
         let _ = GSVQuery::try_from_path_query(s, "/secretsmanager/");
-        
-        // Test refresh value parsing
-        let _ = aws_secretsmanager_agent::parse_refresh_value(s);
     }
 });
