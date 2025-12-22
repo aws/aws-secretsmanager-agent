@@ -1,15 +1,36 @@
 // Library interface for the AWS Secrets Manager Agent
-// This exposes internal modules for testing and fuzzing purposes
+// Only exposes modules needed for public API and testing
 
-pub mod cache_manager;
 pub mod config;
-pub mod constants;
 pub mod error;
-pub mod logging;
-pub mod parse;
-pub mod server;
-pub mod utils;
 
-// Re-export key types and functions for fuzzing
-pub use parse::GSVQuery;
-pub use utils::get_token;
+// Internal modules exposed only for testing and fuzzing
+#[doc(hidden)]
+pub mod internal {
+    pub mod cache_manager {
+        pub use crate::cache_manager::*;
+    }
+    pub mod constants {
+        pub use crate::constants::*;
+    }
+    pub mod logging {
+        pub use crate::logging::*;
+    }
+    pub mod parse {
+        pub use crate::parse::*;
+    }
+    pub mod server {
+        pub use crate::server::*;
+    }
+    pub mod utils {
+        pub use crate::utils::*;
+    }
+}
+
+// Private modules
+mod cache_manager;
+mod constants;
+mod logging;
+mod parse;
+mod server;
+mod utils;

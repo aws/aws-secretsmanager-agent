@@ -1,7 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use aws_secretsmanager_agent::{get_token, config::Config};
+use aws_secretsmanager_agent::internal::utils::get_token;
+use aws_secretsmanager_agent::config::Config;
 use std::fs;
 use std::env;
 

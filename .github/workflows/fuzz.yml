@@ -26,12 +26,12 @@ jobs:
       - name: Install cargo-fuzz
         run: cargo install cargo-fuzz
       
-      - name: Run fuzz_query_parser (2 min)
-        run: cargo +nightly fuzz run fuzz_query_parser -- -max_total_time=120
+      - name: Run fuzz_token_validator (3 min)
+        run: cargo +nightly fuzz run fuzz_token_validator -- -max_total_time=180
         continue-on-error: false
       
-      - name: Run fuzz_token_validator (2 min)
-        run: cargo +nightly fuzz run fuzz_token_validator -- -max_total_time=120
+      - name: Run fuzz_http_server (3 min)
+        run: cargo +nightly fuzz run fuzz_http_server -- -max_total_time=180
         continue-on-error: false
       
       - name: Upload crash artifacts
