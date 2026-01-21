@@ -410,13 +410,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "aws-smithy-mocks-experimental"
-version = "0.2.4"
+name = "aws-smithy-mocks"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ce8a35535906a8a9ceadbe7ff70ae8686a36f7df03b288b1256c084a5c45c69"
+checksum = "178b1ad961028a58d48ce857f86ffbd5233a4b7e2c7b56d026fb1c1afe46696e"
 dependencies = [
+ "aws-smithy-http-client",
  "aws-smithy-runtime-api",
  "aws-smithy-types",
+ "http 1.3.1",
 ]
 
 [[package]]
@@ -581,7 +583,7 @@ version = "2.0.0"
 dependencies = [
  "aws-config",
  "aws-sdk-secretsmanager",
- "aws-smithy-mocks-experimental",
+ "aws-smithy-mocks",
  "aws-smithy-runtime",
  "aws-smithy-runtime-api",
  "aws-smithy-types",
