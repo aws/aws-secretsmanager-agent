@@ -34,6 +34,7 @@ jobs:
     
     steps:
     - name: Remove label
+      if: github.event_name == 'pull_request_target'
       run: |
         echo "Removing label '$LABEL_NAME' from PR #$PR_NUMBER on repo $REPO" 
         gh_status=$(gh api "repos/$REPO/issues/$PR_NUMBER/labels/$LABEL_NAME" -X DELETE | jq 'if type == "object" then .status else empty end' --raw-output)
@@ -50,10 +51,7 @@ jobs:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
     
     - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
+      uses: dtolnay/rust-toolchain@stable
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v5

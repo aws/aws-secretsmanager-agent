@@ -18,6 +18,7 @@ updates:
     groups:
       dependencies:
         applies-to: version-updates
+        dependency-type: production
         update-types:
           - minor
           - patch
@@ -28,6 +29,7 @@ updates:
     groups:
       dependencies:
         applies-to: version-updates
+        dependency-type: production
         update-types:
           - minor
           - patch

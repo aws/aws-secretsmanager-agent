@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-OWN_FILENAME="$(basename $0)"
+OWN_FILENAME="$(basename "$0")"
 LAMBDA_EXTENSION_NAME="$OWN_FILENAME" # (external) extension name has to match the filename
 TMPFILE=/tmp/$OWN_FILENAME
 
@@ -43,6 +43,7 @@ start_agent() {
         fi
         echo "[${LAMBDA_EXTENSION_NAME}] Agent has not started yet, retrying in 100 milliseconds..."
         sleep 0.1 # Sleep for 100 milliseconds
+        RETRIES=$((RETRIES + 1))
       fi
     done
   else
@@ -73,7 +74,6 @@ echo "[${LAMBDA_EXTENSION_NAME}] Registering at http://${AWS_LAMBDA_RUNTIME_API}
 curl -sS -LD "$HEADERS" -XPOST "http://${AWS_LAMBDA_RUNTIME_API}/2020-01-01/extension/register" --header "Lambda-Extension-Name: ${LAMBDA_EXTENSION_NAME}" -d "{ \"events\": [\"INVOKE\", \"SHUTDOWN\"]}" > $TMPFILE
 
 RESPONSE=$(<$TMPFILE)
-HEADINFO=$(<$HEADERS)
 # Extract Extension ID from response headers
 EXTENSION_ID=$(grep -Fi Lambda-Extension-Identifier "$HEADERS" | tr -d '[:space:]' | cut -d: -f2)
 echo "[${LAMBDA_EXTENSION_NAME}] Registration response: ${RESPONSE} with EXTENSION_ID  ${EXTENSION_ID}"
