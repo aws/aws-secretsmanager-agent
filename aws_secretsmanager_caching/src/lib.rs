@@ -1028,6 +1028,8 @@ mod tests {
             http_client: Option<SharedHttpClient>,
             endpoint_url: Option<String>,
         ) -> secretsmanager::Client {
+            use aws_smithy_types::retry::RetryConfig;
+
             let fake_creds = secretsmanager::config::Credentials::new(
                 "AKIDTESTKEY",
                 "astestsecretkey",
@@ -1045,6 +1047,7 @@ mod tests {
                         .operation_attempt_timeout(Duration::from_millis(100))
                         .build(),
                 )
+                .retry_config(RetryConfig::disabled())
                 .http_client(match http_client {
                     Some(custom_client) => custom_client,
                     None => infallible_client_fn(|_req| {
