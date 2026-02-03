@@ -22,14 +22,10 @@ jobs:
       uses: actions/checkout@v5
     
     - name: Install Rust stable
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Download previous benchmark results
-      uses: actions/download-artifact@v4
-      continue-on-error: true
+      uses: actions-rs/toolchain@v1
       with:
-        name: benchmark-results-${{ github.base_ref || github.ref_name }}
-        path: aws_secretsmanager_caching/target/criterion/
+        toolchain: stable
+        override: true
     
     - name: Run benchmarks
       working-directory: aws_secretsmanager_caching
@@ -39,7 +35,7 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: benchmark-results-${{ github.base_ref || github.ref_name }}
-        path: aws_secretsmanager_caching/target/criterion/
+        name: benchmark-results-${{ github.sha }}
+        path: target/criterion/
         if-no-files-found: error
         retention-days: 30
