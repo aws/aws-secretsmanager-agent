@@ -5,7 +5,7 @@ use url::Url;
 use crate::error::HttpError;
 
 #[derive(Debug)]
- pub(crate) struct GSVQuery {
+pub(crate) struct GSVQuery {
     pub secret_id: String,
     pub version_id: Option<String>,
     pub version_stage: Option<String>,

@@ -37,7 +37,7 @@ use tests::var_test as var;
 ///     "{\"__type\":\"ResourceNotFoundException\",\"message\":\"Secrets Manager can't find the specified secret.\"}"
 /// );
 /// ```
-
+#[doc(hidden)]
 pub fn err_response(err_code: &str, msg: &str) -> String {
     if msg.is_empty() || err_code == "InternalFailure" {
         return String::from("{\"__type\":\"InternalFailure\"}");
@@ -59,6 +59,7 @@ pub fn err_response(err_code: &str, msg: &str) -> String {
 ///
 /// * `Ok(String)` - The SSRF token value.
 /// * `Err(Error)` - Error indicating that the variable is not set or could not be read.
+#[doc(hidden)]
 pub fn get_token(config: &Config) -> Result<String, Box<dyn std::error::Error>> {
     // Iterate through the env name list looking for the first variable set
     #[allow(clippy::redundant_closure)]
