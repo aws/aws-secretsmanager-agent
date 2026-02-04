@@ -1,167 +1,141 @@
 # Fuzz Testing
 
-The AWS Secrets Manager Agent includes fuzz tests to discover security vulnerabilities, edge cases, and potential crashes by feeding malformed, unexpected, or random inputs to critical components.
+This directory contains fuzz tests for the AWS Secrets Manager Agent using [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz).
 
 ## Overview
 
-Fuzz testing uses [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) with libFuzzer to automatically generate test inputs and discover bugs in:
+Fuzzing helps discover security vulnerabilities and edge cases by feeding malformed inputs to the agent's **public HTTP API**. The fuzz tests focus on the actual attack surface that customers interact with, without exposing internal implementation details.
 
-- **Query Parser** (`fuzz_query_parser`) - Tests URL query parameter and path-based request parsing
-- **Token Validator** (`fuzz_token_validator`) - Tests SSRF token validation and file:// path handling
+## Fuzz Targets
+
+### `fuzz_http_api`
+
+Tests the public HTTP endpoints of the Secrets Manager Agent:
+
+- **Query-based requests**: `/secretsmanager/get?secretId=...`
+- **Path-based requests**: `/v1/<secret-id>`
+- **Health check**: `/ping`
+
+This target fuzzes:
+- Secret IDs (names and ARNs)
+- Query parameters (`versionStage`, `versionId`, `refreshNow`)
+- URL encoding edge cases
+- SSRF token validation
+- Security header checks (X-Forwarded-For rejection)
 
 ## Prerequisites
 
-- Rust nightly toolchain
-- cargo-fuzz
-
-## Installation
-
-Install the required tools:
-
-```sh
-# Install Rust nightly
-rustup toolchain install nightly
+```bash
+# Install Rust nightly (required for cargo-fuzz)
+rustup install nightly
 
 # Install cargo-fuzz
 cargo install cargo-fuzz
 ```
 
-## Running Fuzz Tests Locally
+## Running Fuzz Tests
 
-### Quick Test (30 seconds per target)
+### Quick Test (3 minutes)
 
-Run each fuzz target for 30 seconds to verify it works:
-
-```sh
-# Test query parser
-cargo +nightly fuzz run fuzz_query_parser -- -max_total_time=30
-
-# Test token validator
-cargo +nightly fuzz run fuzz_token_validator -- -max_total_time=30
+```bash
+cd fuzz
+cargo +nightly fuzz run fuzz_http_api -- -max_total_time=180
 ```
 
 ### Extended Fuzzing
 
-For more thorough testing, run for longer periods:
+```bash
+# Run for 1 hour
+cargo +nightly fuzz run fuzz_http_api -- -max_total_time=3600
 
-```sh
-# Run for 10 minutes
-cargo +nightly fuzz run fuzz_query_parser -- -max_total_time=600
-
-# Run indefinitely (stop with Ctrl+C)
-cargo +nightly fuzz run fuzz_query_parser
+# Run indefinitely (Ctrl+C to stop)
+cargo +nightly fuzz run fuzz_http_api
 ```
 
-### List Available Targets
+### With Custom Options
 
-```sh
-cargo +nightly fuzz list
+```bash
+# Limit memory usage
+cargo +nightly fuzz run fuzz_http_api -- -rss_limit_mb=2048
+
+# Use multiple CPU cores
+cargo +nightly fuzz run fuzz_http_api -- -workers=4 -jobs=4
+
+# Combine options
+cargo +nightly fuzz run fuzz_http_api -- -max_total_time=600 -workers=4
 ```
 
 ## Reproducing Crashes
 
-When a fuzzer discovers a crash, it saves the input to `fuzz/artifacts/<target>/crash-<hash>`.
+If fuzzing finds a crash, it will be saved in `fuzz/artifacts/fuzz_http_api/`:
 
-To reproduce a crash:
+```bash
+# Reproduce a specific crash
+cargo +nightly fuzz run fuzz_http_api fuzz/artifacts/fuzz_http_api/crash-<hash>
 
-```sh
-# Replay the exact input that caused the crash
-cargo +nightly fuzz run <target> fuzz/artifacts/<target>/crash-<hash>
+# Debug with more output
+RUST_BACKTRACE=1 cargo +nightly fuzz run fuzz_http_api fuzz/artifacts/fuzz_http_api/crash-<hash>
 ```
-
-Example:
-
-```sh
-cargo +nightly fuzz run fuzz_query_parser fuzz/artifacts/fuzz_query_parser/crash-abc123
-```
-
-### Minimizing Crash Inputs
-
-To find the smallest input that still triggers the crash:
-
-```sh
-cargo +nightly fuzz tmin <target> fuzz/artifacts/<target>/crash-<hash>
-```
-
-This helps identify the root cause by removing unnecessary bytes from the crashing input.
-
-## Continuous Integration
-
-Fuzz tests run automatically on every pull request via GitHub Actions (`.github/workflows/fuzz.yml`):
-
-- Each target runs for 2 minutes
-- Crashes fail the build
-- Crash artifacts are uploaded for debugging
 
 ## Corpus Management
 
-The corpus contains seed inputs that guide the fuzzer:
+The corpus contains test inputs that achieve good code coverage:
 
-```
-fuzz/corpus/
-├── fuzz_query_parser/     # Seed inputs for query parser
-└── fuzz_token_validator/  # Seed inputs for token validator
-```
+```bash
+# View corpus
+ls fuzz/corpus/fuzz_http_api/
 
-### Adding Seed Inputs
+# Add custom test case
+echo -n "your-test-input" > fuzz/corpus/fuzz_http_api/custom_test
 
-To add a new seed input:
-
-1. Create a file in the appropriate corpus directory
-2. Add representative input data (valid or interesting edge cases)
-3. Commit the file to git
-
-Example:
-
-```sh
-echo "secretId=test&versionId=v1" > fuzz/corpus/fuzz_query_parser/seed_with_version
+# Minimize corpus (remove redundant inputs)
+cargo +nightly fuzz cmin fuzz_http_api
 ```
 
-The fuzzer will use these seeds as starting points to generate new test cases.
+## Coverage Analysis
 
-## Understanding Fuzzer Output
+```bash
+# Generate coverage report
+cargo +nightly fuzz coverage fuzz_http_api
 
-During fuzzing, you'll see output like:
-
+# View coverage (requires llvm-cov)
+cargo cov -- show target/*/release/fuzz_http_api \
+    --format=html \
+    --instr-profile=fuzz/coverage/fuzz_http_api/coverage.profdata \
+    > coverage.html
 ```
-#12345  NEW    cov: 234 ft: 567 corp: 89/1234b lim: 4096 exec/s: 1234
-```
 
-- `NEW` - Found new coverage
-- `cov: 234` - Total edge coverage
-- `ft: 567` - Feature coverage
-- `corp: 89/1234b` - Corpus size (89 inputs, 1234 bytes)
-- `exec/s: 1234` - Executions per second
+## CI Integration
+
+Fuzz tests run automatically on every PR for 3 minutes per target. See `.github/workflows/fuzz.yml`.
+
+## Design Philosophy
+
+These fuzz tests follow security best practices:
+
+1. **Public API Only**: Tests only the HTTP endpoints customers use, not internal functions
+2. **No Module Exposure**: Doesn't require exposing private modules or functions
+3. **Real Attack Surface**: Focuses on actual security boundaries (HTTP parsing, auth, SSRF protection)
+4. **Comprehensive Coverage**: Tests all public endpoints and security-critical features
+
+This approach ensures fuzzing provides security value without compromising the library's API stability.
 
 ## Troubleshooting
 
-### Fuzzer Won't Start
+### "error: no such subcommand: `fuzz`"
 
-If you see "error: no such subcommand: `fuzz`":
+Install cargo-fuzz: `cargo install cargo-fuzz`
 
-```sh
-# Reinstall cargo-fuzz
-cargo install cargo-fuzz --force
-```
+### "error: toolchain 'nightly' is not installed"
 
-### Out of Memory
+Install nightly: `rustup install nightly`
 
-If fuzzing crashes with OOM errors, reduce the memory limit:
+### Out of memory errors
 
-```sh
-cargo +nightly fuzz run <target> -- -rss_limit_mb=2048
-```
+Reduce memory limit: `cargo +nightly fuzz run fuzz_http_api -- -rss_limit_mb=1024`
 
-### Slow Fuzzing
-
-If fuzzing is slow (< 1000 exec/s), try:
-
-1. Build in release mode (cargo-fuzz does this by default)
-2. Close other applications
-3. Use a simpler seed corpus
-
-## Additional Resources
+## Resources
 
 - [cargo-fuzz documentation](https://rust-fuzz.github.io/book/cargo-fuzz.html)
 - [libFuzzer options](https://llvm.org/docs/LibFuzzer.html#options)
-- [Rust Fuzz Book](https://rust-fuzz.github.io/book/)
+- [Rust fuzzing guide](https://rust-fuzz.github.io/book/)

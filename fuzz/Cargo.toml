@@ -1,5 +1,5 @@
 [package]
-name = "aws_secretsmanager_agent-fuzz"
+name = "aws-secretsmanager-agent-fuzz"
 version = "0.0.0"
 publish = false
 edition = "2021"
@@ -9,24 +9,16 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-hyper = { version = "1", features = ["http1", "server"] }
-http = "1"
-tokio = { version = "1", features = ["rt", "net"] }
+arbitrary = { version = "1.4", features = ["derive"] }
+url = "2.5"
 urlencoding = "2.1"
 
-[dependencies.aws_secretsmanager_agent]
-path = "../aws_secretsmanager_agent"
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
 
 [[bin]]
-name = "fuzz_token_validator"
-path = "fuzz_targets/fuzz_token_validator.rs"
+name = "fuzz_http_api"
+path = "fuzz_targets/fuzz_http_api.rs"
 test = false
 doc = false
-bench = false
-
-[[bin]]
-name = "fuzz_http_server"
-path = "fuzz_targets/fuzz_http_server.rs"
-test = false
-doc = false
-bench = false

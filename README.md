@@ -491,7 +491,7 @@ Security conscious applications that are not already using an agent solution wit
 
 ## Fuzz Testing<a name="fuzz-testing"></a>
 
-The AWS Secrets Manager Agent includes fuzz tests to discover security vulnerabilities and edge cases by feeding malformed inputs to critical components. Fuzz tests run automatically on every pull request.
+The AWS Secrets Manager Agent includes fuzz tests to discover security vulnerabilities and edge cases in the public HTTP API. Fuzz tests run automatically on every pull request and test the actual endpoints that customers interact with.
 
 For detailed instructions on running fuzz tests locally, reproducing crashes, and managing the corpus, see [fuzz/README.md](fuzz/README.md).
 

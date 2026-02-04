@@ -5,7 +5,7 @@ use url::Url;
 use crate::error::HttpError;
 
 #[derive(Debug)]
-pub struct GSVQuery {
+ pub(crate) struct GSVQuery {
     pub secret_id: String,
     pub version_id: Option<String>,
     pub version_stage: Option<String>,
@@ -23,7 +23,7 @@ impl GSVQuery {
         }
     }
 
-    pub fn try_from_query(s: &str) -> Result<Self, HttpError> {
+    pub(crate) fn try_from_query(s: &str) -> Result<Self, HttpError> {
         // url library can only parse complete URIs. The host/port/scheme used is irrelevant since it is not used
         let complete_uri = format!("http://localhost{}", s);
 
@@ -53,7 +53,7 @@ impl GSVQuery {
         Ok(query)
     }
 
-    pub fn try_from_path_query(s: &str, path_prefix: &str) -> Result<Self, HttpError> {
+    pub(crate) fn try_from_path_query(s: &str, path_prefix: &str) -> Result<Self, HttpError> {
         // url library can only parse complete URIs. The host/port/scheme used is irrelevant since it gets stripped
         let complete_uri = format!("http://localhost{}", s);
 

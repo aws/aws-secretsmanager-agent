@@ -37,7 +37,7 @@ use tests::var_test as var;
 ///     "{\"__type\":\"ResourceNotFoundException\",\"message\":\"Secrets Manager can't find the specified secret.\"}"
 /// );
 /// ```
-#[doc(hidden)]
+
 pub fn err_response(err_code: &str, msg: &str) -> String {
     if msg.is_empty() || err_code == "InternalFailure" {
         return String::from("{\"__type\":\"InternalFailure\"}");
