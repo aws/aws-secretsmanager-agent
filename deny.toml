@@ -11,4 +11,5 @@ allow = [
     "OpenSSL",
     "0BSD",
     "CDLA-Permissive-2.0",
+    "Zlib",
 ]
