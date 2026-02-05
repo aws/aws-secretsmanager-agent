@@ -180,8 +180,7 @@ impl Config {
     ///
     /// # Returns
     ///
-    /// * `log_to_file` - `true` if writing logs to a file (default), `false` if writing logs to
-    /// stdout/stderr
+    /// * `log_to_file` - `true` if writing logs to a file (default), `false` if writing logs to stdout/stderr
     pub fn log_to_file(&self) -> bool {
         self.log_to_file
     }
