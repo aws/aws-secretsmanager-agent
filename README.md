@@ -489,6 +489,12 @@ For an agent architecture, the domain of trust is where the agent endpoint and S
 
 Security conscious applications that are not already using an agent solution with the Secrets Manager credentials locked down to the application should consider using the language\-specific AWS SDKs or caching solutions\. For more information, see [Get secrets](https://docs.aws.amazon.com/secretsmanager/latest/userguide/retrieving-secrets.html)\.
 
+## Fuzz Testing<a name="fuzz-testing"></a>
+
+The AWS Secrets Manager Agent includes fuzz tests to discover security vulnerabilities and edge cases in the public HTTP API. Fuzz tests run automatically on every pull request and test the actual endpoints that customers interact with.
+
+For detailed instructions on running fuzz tests locally, reproducing crashes, and managing the corpus, see [fuzz/README.md](fuzz/README.md).
+
 ## Running Integration Tests Locally<a name="integration-tests-local"></a>
 
 The AWS Secrets Manager Agent includes a comprehensive integration test suite that validates functionality against real AWS Secrets Manager. These tests cover caching behavior, security features, configuration options, version management, and error handling scenarios.
