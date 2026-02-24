@@ -29,18 +29,28 @@
 
 ## Reviewee Checklist
 
-**For each item, mark Y (yes), N (no), or N/A (not applicable):**
+**Update the checklist after submitting the PR**
 
 - [ ] I have reviewed, tested and understand all changes
+  *If not, why:*
 - [ ] I have filled out the Description and Testing sections above
-- [ ] Build and Unit tests are passing (if failing and expected, explain why)
+  *If not, why:*
+- [ ] Build and Unit tests are passing
+  *If not, why:*
 - [ ] Unit test coverage check is passing
-- [ ] Integration tests are passing
+  *If not, why:*
+- [ ] Integration tests pass locally
+  *If not, why:*
 - [ ] I have updated integration tests (if needed)
+  *If not, why:*
 - [ ] I have ensured no sensitive information is leaking (i.e., no logging of sensitive fields, or otherwise)
+  *If not, why:*
 - [ ] I have added explanatory comments for complex logic, new classes/methods and new tests
+  *If not, why:*
 - [ ] I have updated README/documentation (if needed)
+  *If not, why:*
 - [ ] I have clearly called out breaking changes (if any)
+  *If not, why:*
 
 ---
 
