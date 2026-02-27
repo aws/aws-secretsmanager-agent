@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use crate::config::Config;
 use crate::constants::{APPNAME, MAX_REQ_TIME_SEC, VERSION};
 use aws_sdk_secretsmanager::config::interceptors::BeforeTransmitInterceptorContextMut;
@@ -60,19 +62,16 @@ pub fn err_response(err_code: &str, msg: &str) -> String {
 /// * `Ok(String)` - The SSRF token value.
 /// * `Err(Error)` - Error indicating that the variable is not set or could not be read.
 #[doc(hidden)]
-pub fn get_token(config: &Config) -> Result<String, Box<dyn std::error::Error>> {
+pub fn get_token(config: &Config) -> Result<String> {
     // Iterate through the env name list looking for the first variable set
     #[allow(clippy::redundant_closure)]
-    let found = config
+    let val = config
         .ssrf_env_variables()
         .iter()
         .map(|n| var(n))
         .filter_map(|r| r.ok())
-        .next();
-    if found.is_none() {
-        return Err(Box::new(VarError::NotPresent));
-    }
-    let val = found.unwrap();
+        .next()
+        .ok_or(VarError::NotPresent)?;
 
     // If the variable is not a reference to a file, just return the value.
     if !val.starts_with("file://") {
@@ -119,9 +118,7 @@ pub fn time_out_test() -> Duration {
 ///   or validating the AWS credentials.
 #[doc(hidden)]
 #[cfg(not(test))]
-pub async fn validate_and_create_asm_client(
-    config: &Config,
-) -> Result<SecretsManagerClient, Box<dyn std::error::Error>> {
+pub async fn validate_and_create_asm_client(config: &Config) -> Result<SecretsManagerClient> {
     use aws_config::{BehaviorVersion, Region};
     use aws_secretsmanager_caching::error::is_transient_error;
     let default_config = &aws_config::load_defaults(BehaviorVersion::latest()).await;
@@ -324,8 +321,7 @@ pub mod tests {
             .err()
             .unwrap()
             .downcast_ref::<VarError>()
-            .unwrap()
-            .eq(&VarError::NotPresent));
+            .is_some_and(|e| e.eq(&VarError::NotPresent)));
     }
 
     // Make sure the timeout functon returns the correct value.
