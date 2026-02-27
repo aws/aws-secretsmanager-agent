@@ -1,4 +1,5 @@
 use crate::config::LogLevel;
+use anyhow::Result;
 use log::{info, LevelFilter, SetLoggerError};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::rolling_file::policy::compound::roll::fixed_window::FixedWindowRoller;
@@ -41,10 +42,7 @@ static STARTUP: Once = Once::new();
 ///
 /// * `Ok(())` - If no errors are encountered.
 /// * `Err(Error)` - For errors initializing the log.
-pub fn init_logger(
-    log_level: LogLevel,
-    log_to_file: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init_logger(log_level: LogLevel, log_to_file: bool) -> Result<()> {
     let (log_config, logger_type) = match log_to_file {
         true => {
             let file_appender = "FILE_APPENDER";
@@ -101,7 +99,7 @@ pub fn init_logger(
         }
     });
     if let Some(err) = res {
-        return Err(Box::new(err));
+        return Err(err.into());
     }
 
     info!(

@@ -1,3 +1,5 @@
+use anyhow::{bail, Result};
+
 use crate::constants::EMPTY_ENV_LIST_MSG;
 use crate::constants::{BAD_MAX_CONN_MSG, BAD_PREFIX_MSG, EMPTY_SSRF_LIST_MSG};
 use crate::constants::{DEFAULT_MAX_CONNECTIONS, GENERIC_CONFIG_ERR_MSG};
@@ -136,7 +138,7 @@ impl Config {
     ///
     /// * `Ok(Config)` - The config struct.
     /// * `Err((Error)` - The error encountered when trying to read or parse the config overrides.
-    pub fn new(file_path: Option<&str>) -> Result<Config, Box<dyn std::error::Error>> {
+    pub fn new(file_path: Option<&str>) -> Result<Config> {
         // Setting default configurations
         let mut config = ConfigLib::builder()
             .set_default("log_level", DEFAULT_LOG_LEVEL)?
@@ -290,10 +292,11 @@ impl Config {
     /// * `Ok(Config)` - If no errors were found in the overrides.
     /// * `Err(Error)` - An error message with the configuration error.
     #[doc(hidden)]
-    fn build(config_file: ConfigFile) -> Result<Config, Box<dyn std::error::Error>> {
+    fn build(config_file: ConfigFile) -> Result<Config> {
         let config = Config {
             // Configurations that are allowed to be overridden.
-            log_level: LogLevel::from_str(config_file.log_level.as_str())?,
+            log_level: LogLevel::from_str(config_file.log_level.as_str())
+                .map_err(|e| anyhow::anyhow!(e))?,
             log_to_file: config_file.log_to_file,
             http_port: parse_num::<u16>(
                 &config_file.http_port,
@@ -314,7 +317,7 @@ impl Config {
                 None,
             )?) {
                 Some(x) => x,
-                None => Err(INVALID_CACHE_SIZE_ERR_MSG)?,
+                None => bail!(INVALID_CACHE_SIZE_ERR_MSG),
             },
             ssrf_headers: config_file.ssrf_headers,
             ssrf_env_variables: config_file.ssrf_env_variables,
@@ -332,13 +335,13 @@ impl Config {
 
         // Additional validations.
         if config.ssrf_headers.is_empty() {
-            Err(EMPTY_SSRF_LIST_MSG)?;
+            bail!(EMPTY_SSRF_LIST_MSG);
         }
         if config.ssrf_env_variables.is_empty() {
-            Err(EMPTY_ENV_LIST_MSG)?;
+            bail!(EMPTY_ENV_LIST_MSG);
         }
         if !config.path_prefix.starts_with('/') {
-            Err(BAD_PREFIX_MSG)?;
+            bail!(BAD_PREFIX_MSG);
         }
 
         Ok(config)
@@ -371,22 +374,22 @@ fn parse_num<T>(
     msg: &str,
     pos_range: Option<Range<T>>,
     neg_range: Option<Range<T>>,
-) -> Result<T, Box<dyn std::error::Error>>
+) -> Result<T>
 where
     T: PartialOrd + Sized + std::str::FromStr,
 {
     let val = match str_val.parse::<T>() {
         Ok(x) => x,
-        _ => Err(msg)?,
+        _ => bail!(msg.to_owned()),
     };
     if let Some(rng) = pos_range {
         if !rng.contains(&val) {
-            Err(msg)?;
+            bail!(msg.to_owned());
         }
     }
     if let Some(rng) = neg_range {
         if rng.contains(&val) {
-            Err(msg)?;
+            bail!(msg.to_owned());
         }
     }
 

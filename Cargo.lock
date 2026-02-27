@@ -573,6 +573,7 @@ dependencies = [
 name = "aws_secretsmanager_agent"
 version = "2.0.0"
 dependencies = [
+ "anyhow",
  "aws-config",
  "aws-sdk-secretsmanager",
  "aws-sdk-sts",

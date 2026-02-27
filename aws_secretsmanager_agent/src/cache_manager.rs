@@ -1,3 +1,5 @@
+use anyhow::Result;
+
 use crate::error::HttpError;
 use crate::utils::err_response;
 use aws_sdk_secretsmanager::error::ProvideErrorMetadata;
@@ -28,7 +30,7 @@ use tests::init_client as asm_client;
 /// Used to cache and retrieve secrets.
 impl CacheManager {
     /// Create a new CacheManager. For simplicity I'm propagating the errors back up for now.
-    pub async fn new(cfg: &Config) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(cfg: &Config) -> Result<Self> {
         Ok(Self(SecretsManagerCachingClient::new(
             asm_client(cfg).await?,
             cfg.cache_size(),
@@ -231,9 +233,7 @@ pub mod tests {
     }
 
     // Used to replace the real client with the stub client.
-    pub async fn init_client(
-        _cfg: &Config,
-    ) -> Result<secretsmanager::Client, Box<dyn std::error::Error>> {
+    pub async fn init_client(_cfg: &Config) -> Result<secretsmanager::Client> {
         Ok(CLIENT.with_borrow(|v| v.clone()))
     }
 
