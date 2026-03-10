@@ -1,0 +1,39 @@
+name: Fuzz Tests
+
+on:
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      
+      - name: Install Rust nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+      
+      - name: Run fuzz_http_api (3 min)
+        run: cargo +nightly fuzz run fuzz_http_api -- -max_total_time=180
+        continue-on-error: false
+      
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ github.sha }}
+          path: fuzz/artifacts/
+          retention-days: 30

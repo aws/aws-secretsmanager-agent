@@ -1,0 +1,24 @@
+[package]
+name = "aws-secretsmanager-agent-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1.4", features = ["derive"] }
+url = "2.5"
+urlencoding = "2.1"
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "fuzz_http_api"
+path = "fuzz_targets/fuzz_http_api.rs"
+test = false
+doc = false
