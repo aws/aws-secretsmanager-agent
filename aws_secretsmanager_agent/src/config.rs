@@ -46,7 +46,7 @@ struct ConfigFile {
     region: Option<String>,
     ignore_transient_errors: bool,
     validate_credentials: bool,
-    credentials_file_path: Option<String>,
+    credentials_file_path: Option<PathBuf>,
 }
 
 /// The log levels supported by the daemon.
@@ -343,7 +343,7 @@ impl Config {
             region: config_file.region,
             ignore_transient_errors: config_file.ignore_transient_errors,
             validate_credentials: config_file.validate_credentials,
-            credentials_file_path: config_file.credentials_file_path.map(PathBuf::from),
+            credentials_file_path: config_file.credentials_file_path,
         };
 
         // Additional validations.
@@ -457,6 +457,7 @@ mod tests {
         assert_eq!(config.clone().region(), None);
         assert!(config.ignore_transient_errors());
         assert!(config.validate_credentials());
+        assert_eq!(config.credentials_file_path(), None);
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -483,6 +484,10 @@ mod tests {
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
         assert!(!config.ignore_transient_errors());
         assert!(!config.validate_credentials());
+        assert_eq!(
+            config.credentials_file_path(),
+            Some(&PathBuf::from("/tmp/test_credentials"))
+        );
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.
