@@ -1,7 +1,7 @@
 /// User visible error messages.
 pub const INVALID_LOG_LEVEL_ERR_MSG: &str = "The log level specified in the configuration file isn't valid. The log level must be DEBUG, INFO, WARN, ERROR, or NONE.";
 pub const INVALID_HTTP_PORT_ERR_MSG: &str = "The HTTP port specified in the configuration file isn't valid. The HTTP port must be in the range 1024 to 65535.";
-pub const INVALID_TTL_SECONDS_ERR_MSG: &str = "The TTL in seconds specified in the configuration file isn't valid. The TTL in seconds must be in the range 1 to 3600.";
+pub const INVALID_TTL_SECONDS_ERR_MSG: &str = "The TTL in seconds specified in the configuration file isn't valid. The TTL in seconds must be in the range 0 to 3600.";
 pub const INVALID_CACHE_SIZE_ERR_MSG: &str = "The cache size specified in the configuration file isn't valid. The cache size must be in the range 1 to 1000.";
 pub const GENERIC_CONFIG_ERR_MSG: &str =
     "There was an unexpected error in loading the configuration file.";
