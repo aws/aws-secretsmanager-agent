@@ -31,10 +31,15 @@ To download the source code, see [https://github\.com/aws/aws\-secretsmanager\-a
       - [\[ curl \]](#-curl--1)
       - [\[ Python \]](#-python--1)
   - [Configure the Secrets Manager Agent](#configure-the-secrets-manager-agent)
-  - [Optional features](#optional-features)
   - [Logging](#logging)
   - [Security considerations](#security-considerations)
-  - [Running Integration Tests Locally](#integration-tests-local)
+  - [Running Integration Tests Locally](#running-integration-tests-locally)
+    - [Prerequisites](#prerequisites)
+    - [Required AWS Permissions](#required-aws-permissions)
+    - [Running Tests](#running-tests)
+      - [Option 1: Using the test script](#option-1-using-the-test-script)
+      - [Option 2: Manual execution](#option-2-manual-execution)
+    - [Test Organization](#test-organization)
 
 ## Step 1: Build the Secrets Manager Agent binary<a name="secrets-manager-agent-build"></a>
 
@@ -45,10 +50,6 @@ To build the Secrets Manager Agent binary natively, you need the standard develo
 **NOTE:** To ensure a stable experience, use a specific git tag when building from source code. You can find a list of version tags [here](https://github.com/aws/aws-secretsmanager-agent/tags). Tags are in the pattern `/v\d+\.\d+\.\d+/` and follow [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html).
 
 Example: `git clone --branch <git tag> https://github.com/aws/aws-secretsmanager-agent.git`
-
-**NOTE:** Building the agent with the `fips` feature enabled on macOS currently requires the following workaround:
-
-- Create an environment variable called `SDKROOT` which is set to the result of running `xcrun --show-sdk-path`
 
 #### [ RPM\-based systems ]
 
@@ -467,11 +468,6 @@ The following list shows the options you can configure for the Secrets Manager A
 + **ssrf\_env\_variables** – A list of environment variable names the Secrets Manager Agent checks in sequential order for the SSRF token\. The environment variable can contain the token or a reference to the token file as in: `AWS_TOKEN=file:///var/run/awssmatoken`\. The default is "AWS\_TOKEN, AWS\_SESSION\_TOKEN, AWS\_CONTAINER\_AUTHORIZATION\_TOKEN\".
 + **path\_prefix** – The URI prefix used to determine if the request is a path based request\. The default is "/v1/"\.
 + **max\_conn** – The maximum number of connections from HTTP clients that the Secrets Manager Agent allows, in the range 1 to 1000\. The default is 800\.
-
-## Optional features<a name="secrets-manager-agent-features"></a>
-
-The Secrets Manager Agent can be built with optional features by passing the `--features` flag to `cargo build`. The available features are:
-* `fips`: restricts the cipher suites used by the agent to only FIPS-approved ciphers
 
 ## Logging<a name="secrets-manager-agent-log"></a>
 
