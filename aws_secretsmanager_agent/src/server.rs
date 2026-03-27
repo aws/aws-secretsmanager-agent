@@ -1,3 +1,4 @@
+use anyhow::Result;
 use bytes::Bytes;
 use http_body_util::Full;
 use hyper::server::conn::http1;
@@ -43,10 +44,7 @@ impl Server {
     ///
     /// * `Ok(Self)` - The server object.
     /// * `Box<dyn std::error::Error>>` - Retruned for errors initializing the agent
-    pub async fn new(
-        listener: TcpListener,
-        cfg: &Config,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(listener: TcpListener, cfg: &Config) -> Result<Self> {
         Ok(Self {
             listener: Arc::new(listener),
             cache_mgr: Arc::new(CacheManager::new(cfg).await?),
@@ -67,7 +65,7 @@ impl Server {
     /// # Errors
     ///
     /// * `std::io::Error` - Error while accepting request.
-    pub async fn serve_request(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn serve_request(&self) -> Result<()> {
         let (stream, _) = self.listener.accept().await?;
         stream.set_ttl(1)?; // Prohibit network hops
         let io = TokioIo::new(stream);
