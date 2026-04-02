@@ -1373,6 +1373,8 @@ mod tests {
             http_client: SharedHttpClient,
             endpoint_url: String,
         ) -> secretsmanager::Client {
+            use aws_smithy_types::retry::RetryConfig;
+
             let fake_creds = secretsmanager::config::Credentials::new(
                 "AKIDTESTKEY",
                 "astestsecretkey",
@@ -1380,7 +1382,7 @@ mod tests {
                 None,
                 "",
             );
-            let mut config_builder = secretsmanager::Config::builder()
+            let config_builder = secretsmanager::Config::builder()
                 .behavior_version(BehaviorVersion::latest())
                 .credentials_provider(fake_creds)
                 .region(secretsmanager::config::Region::new("us-west-2"))
@@ -1389,8 +1391,9 @@ mod tests {
                         .operation_attempt_timeout(Duration::from_millis(100))
                         .build(),
                 )
-                .http_client(http_client);
-            config_builder = config_builder.endpoint_url(endpoint_url);
+                .retry_config(RetryConfig::disabled())
+                .http_client(http_client)
+                .endpoint_url(endpoint_url);
 
             secretsmanager::Client::from_conf(config_builder.build())
         }
