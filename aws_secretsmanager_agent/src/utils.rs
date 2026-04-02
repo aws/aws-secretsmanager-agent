@@ -126,8 +126,7 @@ pub async fn validate_and_create_asm_client(
     use aws_secretsmanager_caching::error::is_transient_error;
     let default_config = &aws_config::load_defaults(BehaviorVersion::latest()).await;
     let mut asm_builder = aws_sdk_secretsmanager::config::Builder::from(default_config)
-        .interceptor(AgentModifierInterceptor)
-        .use_fips(config.use_fips_endpoint());
+        .interceptor(AgentModifierInterceptor);
 
     if let Some(region) = config.region() {
         asm_builder.set_region(Some(Region::new(region.clone())));
