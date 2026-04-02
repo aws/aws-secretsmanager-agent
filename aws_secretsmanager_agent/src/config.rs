@@ -25,6 +25,7 @@ const DEFAULT_SSRF_ENV_VARIABLES: [&str; 3] = [
 const DEFAULT_PATH_PREFIX: &str = "/v1/";
 const DEFAULT_IGNORE_TRANSIENT_ERRORS: bool = true;
 const DEFAULT_STS_CHECK: bool = true;
+const DEFAULT_USE_FIPS_ENDPOINT: bool = false;
 
 const DEFAULT_REGION: Option<String> = None;
 
@@ -45,6 +46,7 @@ struct ConfigFile {
     region: Option<String>,
     ignore_transient_errors: bool,
     validate_credentials: bool,
+    use_fips_endpoint: bool,
 }
 
 /// The log levels supported by the daemon.
@@ -112,6 +114,9 @@ pub struct Config {
 
     /// Whether the agent should validate AWS credentials at startup
     validate_credentials: bool,
+
+    /// Use FIPS endpoint
+    use_fips_endpoint: bool,
 }
 
 /// The default configuration options.
@@ -156,7 +161,8 @@ impl Config {
             .set_default("max_conn", DEFAULT_MAX_CONNECTIONS)?
             .set_default("region", DEFAULT_REGION)?
             .set_default("ignore_transient_errors", DEFAULT_IGNORE_TRANSIENT_ERRORS)?
-            .set_default("validate_credentials", DEFAULT_STS_CHECK)?;
+            .set_default("validate_credentials", DEFAULT_STS_CHECK)?
+            .set_default("use_fips_endpoint", DEFAULT_USE_FIPS_ENDPOINT)?;
 
         // Merge the config overrides onto the default configurations, if provided.
         config = match file_path {
@@ -278,6 +284,15 @@ impl Config {
         self.validate_credentials
     }
 
+    /// Whether to use FIPS endpoints
+    ///
+    /// # Returns
+    ///
+    /// * `use_fips_endpoint` - Whether the agent should use FIPS endpoints. Defaults to "false"
+    pub fn use_fips_endpoint(&self) -> bool {
+        self.use_fips_endpoint
+    }
+
     /// Private helper that fills in the Config instance from the specified
     /// config overrides (or defaults).
     ///
@@ -328,6 +343,7 @@ impl Config {
             region: config_file.region,
             ignore_transient_errors: config_file.ignore_transient_errors,
             validate_credentials: config_file.validate_credentials,
+            use_fips_endpoint: config_file.use_fips_endpoint,
         };
 
         // Additional validations.
@@ -413,6 +429,7 @@ mod tests {
             region: None,
             ignore_transient_errors: DEFAULT_IGNORE_TRANSIENT_ERRORS,
             validate_credentials: DEFAULT_STS_CHECK,
+            use_fips_endpoint: DEFAULT_USE_FIPS_ENDPOINT,
         }
     }
 
@@ -440,6 +457,7 @@ mod tests {
         assert_eq!(config.clone().region(), None);
         assert!(config.ignore_transient_errors());
         assert!(config.validate_credentials());
+        assert!(!config.use_fips_endpoint());
     }
 
     /// Tests the config overrides are applied correctly from the provided config file.
@@ -466,6 +484,7 @@ mod tests {
         assert_eq!(config.clone().region(), Some(&"us-west-2".to_string()));
         assert!(!config.ignore_transient_errors());
         assert!(!config.validate_credentials());
+        assert!(config.use_fips_endpoint());
     }
 
     /// Tests that an Err is returned when an invalid value is provided in one of the configurations.

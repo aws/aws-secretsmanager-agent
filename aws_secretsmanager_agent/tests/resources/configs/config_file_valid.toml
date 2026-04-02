@@ -12,3 +12,4 @@ max_conn = 10
 region = "us-west-2"
 ignore_transient_errors = false
 validate_credentials = false
+use_fips_endpoint = true
