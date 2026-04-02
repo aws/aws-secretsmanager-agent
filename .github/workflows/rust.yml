@@ -22,14 +22,27 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions-rs/toolchain@v1
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v5
+        id: cache-restore
         with:
-          toolchain: nightly
-          override: true
-          components: rustfmt, clippy, llvm-tools-preview
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Use nightly
+        run: rustup override set nightly
+      - name: Rustup version
+        run: rustup --version
+      - name: Install Rust components
+        run: rustup component add llvm-tools clippy rustfmt cargo
+      - name: Install Cargo binaries
+        run: |
+          which cargo-llvm-cov || cargo install cargo-llvm-cov
+          which cargo-deny || cargo install cargo-deny
       - name: Install ninja-build tool for aws-lc-fips-sys on Windows
         if: runner.os == 'Windows'
         uses: seanmiddleditch/gha-setup-ninja@v6
@@ -41,10 +54,10 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: "stable"
+      - name: Checkout 
+        uses: actions/checkout@v6
       - name: Check licenses
-        run: |
-          cargo install cargo-deny
-          cargo-deny check licenses
+        run: cargo-deny check licenses
       - name: Build
         run: cargo build --verbose
       - name: Run tests
@@ -61,3 +74,14 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --all-targets --all-features
+      - name: Cache dependencies
+        uses: actions/cache/save@v5
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
