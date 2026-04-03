@@ -20,7 +20,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout 
@@ -36,8 +35,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-      - name: Use Rust ${{ matrix.toolchain }}
-        run: rustup override set ${{ matrix.toolchain }}
+      - name: Use Rust stable
+        run: rustup override set stable
       - name: Rustup version
         run: rustup --version
       - name: Install Rust components
