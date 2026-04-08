@@ -43,17 +43,6 @@ jobs:
         run: |
           which cargo-llvm-cov || cargo install cargo-llvm-cov
           which cargo-deny || cargo install cargo-deny
-      - name: Install ninja-build tool for aws-lc-fips-sys on Windows
-        if: runner.os == 'Windows'
-        uses: seanmiddleditch/gha-setup-ninja@v6
-      - name: Install NASM for aws-lc-fips-sys on Windows
-        if: runner.os == 'Windows'
-        uses: ilammy/setup-nasm@v1
-      - name: Install golang for aws-lc-fips-sys on macos
-        if: runner.os == 'MacOS'
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
       - name: Check licenses
         run: cargo-deny check licenses
       - name: Build

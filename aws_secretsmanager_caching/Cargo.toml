@@ -32,9 +32,6 @@ tokio-test = "0.4.4"
 criterion = { version = "0.7.0", features = ["async_tokio", "html_reports"] }
 rand = "0.9.2"
 
-[features]
-fips = ["rustls/fips"]
-
 [[bench]]
 name = "benchmark"
 harness = false
