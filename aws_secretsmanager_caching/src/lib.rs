@@ -1052,13 +1052,15 @@ mod tests {
             });
 
         let describe_secret =
-            mock!(aws_sdk_secretsmanager::Client::describe_secret).then_error(|| {
-                // TODO: Figure out how to set __type
-                DescribeSecretError::generic(
-                    ErrorMetadata::builder()
-                        .code("400")
-                        .message("is not authorized to perform: secretsmanager:DescribeSecret on resource: XXXXXXXX")
-                        .build(),
+            mock!(aws_sdk_secretsmanager::Client::describe_secret).then_http_response(|| {
+                HttpResponse::new(
+                    StatusCode::try_from(400).unwrap(),
+                    SdkBody::from(
+                        r##"{
+                            "__type":"AccessDeniedException",
+                            "message":"is not authorized to perform: secretsmanager:DescribeSecret on resource: XXXXXXXX"
+                        }"##,
+),
                 )
             });
 
