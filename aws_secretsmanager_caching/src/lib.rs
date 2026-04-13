@@ -434,14 +434,15 @@ impl SecretsManagerCachingClient {
 mod tests {
     use aws_sdk_secretsmanager::{
         config::http::HttpResponse,
+        error::ProvideErrorMetadata,
         operation::{
-            describe_secret::{DescribeSecretError, DescribeSecretOutput},
+            describe_secret::DescribeSecretOutput,
             get_secret_value::{GetSecretValueError, GetSecretValueOutput},
         },
         types::error::ResourceNotFoundException,
     };
     use aws_smithy_mocks::{mock, mock_client, RuleMode};
-    use aws_smithy_types::{body::SdkBody, error::ErrorMetadata};
+    use aws_smithy_types::body::SdkBody;
     use tokio::time::sleep;
 
     use super::*;
@@ -1060,7 +1061,7 @@ mod tests {
                             "__type":"AccessDeniedException",
                             "message":"is not authorized to perform: secretsmanager:DescribeSecret on resource: XXXXXXXX"
                         }"##,
-),
+                    ),
                 )
             });
 
@@ -1465,7 +1466,6 @@ mod tests {
 
         #[tokio::test]
         async fn test_is_current_describe_timeout_error_succeeds() {
-            // TODO: Figure out how to do this with mocks
             use aws_smithy_runtime::client::http::test_util::wire::{
                 ReplayedEvent, WireMockServer,
             };
