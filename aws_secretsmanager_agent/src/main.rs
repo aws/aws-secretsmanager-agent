@@ -1,3 +1,4 @@
+use anyhow::{bail, Context, Result};
 use log::{error, info};
 use tokio::net::TcpListener;
 
@@ -26,7 +27,7 @@ use utils::get_token;
 /// * `Ok(())` - Never retuned.
 /// * `Box<dyn std::error::Error>>` - Retruned for errors initializing the agent.
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     run(env::args(), &report, &forever).await
 }
 
@@ -91,8 +92,8 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
     args: impl IntoIterator<Item = String>,
     mut report: S,
     mut end: E,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let (cfg, listener) = init(args).await;
+) -> Result<()> {
+    let (cfg, listener) = init(args).await?;
     let addr = listener.local_addr()?;
     let svr = Server::new(listener, &cfg).await?;
 
@@ -120,89 +121,53 @@ async fn run<S: FnMut(&SocketAddr), E: FnMut() -> bool>(
 ///
 /// # Returns
 ///
-/// * (Config, TcpListener) - The configuration info and the TCP listener.
-///
-/// ```
+/// * `Ok((Config, TcpListener))` - The configuration info and the TCP listener.
+/// * `Err(Error)` - An error encountered during initialization.
 #[doc(hidden)]
-async fn init(args: impl IntoIterator<Item = String>) -> (Config, TcpListener) {
+async fn init(args: impl IntoIterator<Item = String>) -> Result<(Config, TcpListener)> {
     // Get the arg iterator and program name from arg 0.
     let mut args = args.into_iter();
     let usage = format!(
         "Usage: {} [--config <file>]",
         args.next().unwrap_or_default().as_str()
     );
-    let usage = usage.as_str();
     let mut config_file = None;
 
     // Parse command line args and see if there is a config file.
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "-c" | "--config" => {
-                config_file = args.next().or_else(|| err_exit("Argument expected", usage))
+                config_file = Some(
+                    args.next()
+                        .ok_or_else(|| anyhow::anyhow!("Argument expected"))?,
+                )
             }
-            "-h" | "--help" => err_exit("", usage),
-            _ => err_exit(&format!("Unknown option {arg}"), usage),
+            "-h" | "--help" => bail!(usage),
+            _ => bail!("Unknown option {arg}"),
         }
     }
 
     // Initialize the config options.
-    let config = match Config::new(config_file.as_deref()) {
-        Ok(conf) => conf,
-        Err(msg) => err_exit(&msg.to_string(), ""),
-    };
+    let config = Config::new(config_file.as_deref())?;
 
     // Initialize logging
-    if let Err(msg) = init_logger(config.log_level(), config.log_to_file()) {
-        err_exit(&msg.to_string(), "");
-    }
+    init_logger(config.log_level(), config.log_to_file())?;
 
     // Verify the SSRF token env variable is set
-    if let Err(err) = get_token(&config) {
-        let msg = format!(
-            "Could not read SSRF token variable(s) {:?}: {err}",
+    get_token(&config).with_context(|| {
+        format!(
+            "Could not read SSRF token variable(s) {:?}",
             config.ssrf_env_variables()
-        );
-        error!("{msg}");
-        err_exit(&msg, "");
-    }
+        )
+    })?;
 
     // Bind the listener to the specified port
     let addr: SocketAddr = ([127, 0, 0, 1], config.http_port()).into();
-    let listener: TcpListener = TcpListener::bind(addr).await.unwrap_or_else(|err| {
-        let msg = format!("Could not bind to {addr}: {}", err);
-        error!("{msg}");
-        err_exit(&msg, "")
-    });
+    let listener = TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("Could not bind to {addr}"))?;
 
-    (config, listener)
-}
-
-/// Private helper print error messages and exit the process with an error.
-///
-/// # Arguments
-///
-/// * `msg` - An error message to print (or the empty string if none is to be printed).
-/// * `usage` - A usage message to print (or the empty string if none is to be printed).
-#[doc(hidden)]
-#[cfg(not(test))]
-fn err_exit(msg: &str, usage: &str) -> ! {
-    if !msg.is_empty() {
-        eprintln!("{msg}");
-    }
-    if !usage.is_empty() {
-        eprintln!("{usage}");
-    }
-    std::process::exit(1);
-}
-#[cfg(test)] // Use panic for testing
-fn err_exit(msg: &str, usage: &str) -> ! {
-    if !msg.is_empty() {
-        panic!("{msg} !!!"); // Suffix message with !!! so we can distinguish it in tests
-    }
-    if !usage.is_empty() {
-        panic!("#{usage}"); // Preceed usage with # so we can distinguish it in tests.
-    }
-    panic!("Should not get here");
+    Ok((config, listener))
 }
 
 #[cfg(test)]
@@ -239,15 +204,16 @@ mod tests {
     }
     fn noop(_addr: &SocketAddr) {}
 
-    // Run a timer for a test that is expected to panic.
+    // Run a timer for a test that is expected to fail with an error.
     async fn panic_test(args: impl IntoIterator<Item = &str>) {
         let vargs: Vec<String> = args.into_iter().map(String::from).collect();
-        let _ = timeout(Duration::from_secs(5), async {
+        let result = timeout(Duration::from_secs(5), async {
             run(vargs, noop, one_shot).await
         })
         .await
-        .expect("Timed out waiting for panic");
-        panic!("Did not panic!");
+        .expect("Timed out waiting for error");
+        // Unwrap the error to trigger a panic with the error message
+        result.unwrap();
     }
 
     // Helpers to run the server in the back ground and send it the given request(s).
@@ -260,13 +226,13 @@ mod tests {
     }
     async fn run_requests_with_verb(
         req_vec: Vec<(&str, &str)>,
-    ) -> Result<Vec<(StatusCode, Bytes)>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<(StatusCode, Bytes)>> {
         run_requests_with_headers(req_vec, vec![("X-Aws-Parameters-Secrets-Token", "xyzzy")]).await
     }
     async fn run_requests_with_headers(
         req_vec: Vec<(&str, &str)>,
         headers: Vec<(&str, &str)>,
-    ) -> Result<Vec<(StatusCode, Bytes)>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<(StatusCode, Bytes)>> {
         run_requests_with_client(req_vec, headers, None).await
     }
     async fn run_timeout_request(req: &str) -> (StatusCode, Bytes) {
@@ -284,7 +250,7 @@ mod tests {
         req_vec: Vec<(&str, &str)>,
         headers: Vec<(&str, &str)>,
         opt_client: Option<secretsmanager::Client>,
-    ) -> Result<Vec<(StatusCode, Bytes)>, Box<dyn std::error::Error>> {
+    ) -> Result<Vec<(StatusCode, Bytes)>> {
         // Run server on port 0 which tells the OS to find an open port.
         let args = vec![
             String::from("prog"),
@@ -457,37 +423,35 @@ mod tests {
 
     // Verify the correct error message for unknown options
     #[tokio::test]
-    #[should_panic(expected = "Unknown option -failure !!!")] // Failure is not an option.
+    #[should_panic(expected = "Unknown option -failure")]
     async fn unkown_arg() {
         panic_test(vec!["prog", "--config", "NoSuchFile", "-failure"]).await;
     }
 
     // Verify the correct error message when --config is specified with no argument
     #[tokio::test]
-    #[should_panic(expected = "Argument expected !!!")]
+    #[should_panic(expected = "Argument expected")]
     async fn missing_arg() {
         panic_test(vec!["prog", "--config"]).await;
     }
 
     // Verify the correct message for the --help option
     #[tokio::test]
-    #[should_panic(expected = "#Usage: prog [--config <file>]")]
+    #[should_panic(expected = "Usage: prog [--config <file>]")]
     async fn help_arg() {
         panic_test(vec!["prog", "--help"]).await;
     }
 
     // Verify the correct error is returned for non-existant config files.
     #[tokio::test]
-    #[should_panic(expected = "configuration file \"NoSuchFile\" not found !!!")]
+    #[should_panic(expected = "configuration file \"NoSuchFile\" not found")]
     async fn nofile_arg() {
         panic_test(vec!["prog", "-c", "NoSuchFile"]).await;
     }
 
     // Verify the correct error is returned when the token env var is not set.
     #[tokio::test]
-    #[should_panic(
-        expected = "Could not read SSRF token variable(s) [\"FAIL_TOKEN\"]: environment variable not found !!!"
-    )]
+    #[should_panic(expected = "Could not read SSRF token variable(s) [\"FAIL_TOKEN\"]")]
     async fn no_token_env() {
         // Generate a temp config file that uses FAIL_TOKEN which forces the unset env var behavior in unit test.
         let tmpfile = tmpfile_name("no_token_env.toml");
@@ -503,7 +467,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     #[should_panic(
-        expected = "Could not read SSRF token variable(s) [\"AWS_TOKEN\", \"AWS_SESSION_TOKEN\", \"AWS_CONTAINER_AUTHORIZATION_TOKEN\"]: Permission denied (os error 13) !!!"
+        expected = "Could not read SSRF token variable(s) [\"AWS_TOKEN\", \"AWS_SESSION_TOKEN\", \"AWS_CONTAINER_AUTHORIZATION_TOKEN\"]"
     )]
     async fn bad_token_file() {
         // Generate a temp file with the default token and take away read permissions.
