@@ -711,10 +711,16 @@ mod tests {
         .unwrap();
         let secret_id = "KMSACCESSDENIEDabcdef";
 
-        match client.get_secret_value(secret_id, None, None, false).await {
+        let error = match client.get_secret_value(secret_id, None, None, false).await {
             Ok(_) => panic!(),
-            Err(e) => e.to_string().contains("Access to KMS is not allowed"),
+            Err(e) => e
+                .downcast::<SdkError<GetSecretValueError, HttpResponse>>()
+                .expect("should be an SdkError")
+                .into_service_error(),
         };
+
+        assert_eq!(error.code(), Some("AccessDeniedException"));
+        assert_eq!(error.message(), Some("Access to KMS is not allowed"));
     }
 
     #[tokio::test]
