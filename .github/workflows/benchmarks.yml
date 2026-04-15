@@ -20,8 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+      - name: Rustup version
+        run: rustup --version
 
       - name: Run benchmarks
         working-directory: aws_secretsmanager_caching
