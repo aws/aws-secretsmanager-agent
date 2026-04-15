@@ -11,6 +11,7 @@ mod server;
 use server::Server;
 mod config;
 mod constants;
+pub mod credentials_file_provider;
 mod logging;
 mod utils;
 
