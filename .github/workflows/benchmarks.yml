@@ -18,20 +18,22 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - name: Rustup version
-        run: rustup --version
+      - name: Log toolchain versions
+        run: rustc --version && cargo --version
 
       - name: Run benchmarks
         working-directory: aws_secretsmanager_caching
         run: cargo bench --bench benchmark -- --output-format bencher | tee ../bench-result.txt
 
-      - name: Download previous benchmark data
-        uses: actions/cache@v4
+      - name: Restore previous benchmark data
+        uses: actions/cache/restore@v4
         with:
           path: ./cache
-          key: ${{ runner.os }}-benchmark
+          key: benchmark-${{ github.sha }}
+          restore-keys: benchmark-
 
       - name: Compare benchmarks
         uses: benchmark-action/github-action-benchmark@v1
@@ -45,3 +47,10 @@ jobs:
           summary-always: true
           alert-threshold: '150%'
           fail-on-alert: true
+
+      - name: Save benchmark data
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: ./cache
+          key: benchmark-${{ github.sha }}
