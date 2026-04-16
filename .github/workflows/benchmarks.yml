@@ -1,11 +1,15 @@
 name: Benchmarks
 
 on:
-  workflow_dispatch:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,29 +17,34 @@ env:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    
-    permissions:
-      contents: read
-    
     steps:
-    - name: Checkout
-      uses: actions/checkout@v6
-    
-    - name: Install Rust stable
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-    
-    - name: Run benchmarks
-      working-directory: aws_secretsmanager_caching
-      run: cargo bench --bench benchmark
-    
-    - name: Upload benchmark results
-      if: always()
-      uses: actions/upload-artifact@v7
-      with:
-        name: benchmark-results-${{ github.sha }}
-        path: target/criterion/
-        if-no-files-found: error
-        retention-days: 30
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log toolchain versions
+        run: rustup --version && rustc --version && cargo --version
+
+      - name: Run benchmarks
+        working-directory: aws_secretsmanager_caching
+        run: cargo bench --bench benchmark -- --output-format bencher | tee ../bench-result.txt
+
+      - name: Download previous benchmark data
+        uses: actions/cache@v4
+        with:
+          path: ./cache
+          key: benchmark-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            benchmark-${{ runner.os }}
+
+      - name: Compare benchmarks
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Secrets Manager Agent Benchmarks
+          tool: cargo
+          output-file-path: bench-result.txt
+          external-data-json-path: ./cache/benchmark-data.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-alert: true
+          summary-always: true
+          alert-threshold: '150%'
+          fail-on-alert: true
