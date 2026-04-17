@@ -756,15 +756,20 @@ mod tests {
         };
     }
 
-    #[tokio::test]
-    async fn test_get_cache_is_current_fast_refreshes() {
+    /// Helper for is_current tests: builds a mock client with GSV + DescribeSecret
+    /// that returns matching version data, then asserts two fetches (with a TTL=0
+    /// expiry sleep in between) result in only 1 GSV call and 1 Describe call.
+    async fn assert_is_current_fast_refreshes(
+        query_version_id: Option<&'static str>,
+        query_version_stage: Option<&'static str>,
+    ) {
         let secret_id = "test_secret";
         let version_id = "version_id";
-        let version_stage = "AWSCURRENT";
+        let version_stage = query_version_stage.unwrap_or("AWSCURRENT");
         let arn = "arn";
 
         let gsv = mock!(aws_sdk_secretsmanager::Client::get_secret_value)
-            .match_requests(|req| req.secret_id() == Some(secret_id))
+            .match_requests(move |req| req.secret_id() == Some(secret_id))
             .then_output(move || {
                 GetSecretValueOutput::builder()
                     .name(secret_id)
@@ -801,18 +806,14 @@ mod tests {
         // Run through this twice to test the cache expiration
         for i in 0..2 {
             let response = client
-                .get_secret_value(secret_id, None, None, false)
+                .get_secret_value(secret_id, query_version_id, query_version_stage, false)
                 .await
                 .unwrap();
 
             assert_eq!(response.name, Some(secret_id.to_string()));
             assert_eq!(response.secret_string, Some("hunter2".to_string()));
             assert_eq!(response.arn, Some(arn.into()));
-            assert_eq!(
-                response.version_stages,
-                Some(vec!["AWSCURRENT".to_string()])
-            );
-            // let the entry expire
+            assert_eq!(response.version_stages, Some(vec![version_stage.into()]));
             if i == 0 {
                 sleep(Duration::from_millis(50)).await;
             }
@@ -820,212 +821,26 @@ mod tests {
 
         assert_eq!(gsv.num_calls(), 1);
         assert_eq!(describe_secret.num_calls(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_cache_is_current_fast_refreshes() {
+        assert_is_current_fast_refreshes(None, None).await;
     }
 
     #[tokio::test]
     async fn test_is_current_version_id_succeeds() {
-        let secret_id = "test_secret";
-        let version_id = "version_id";
-        let version_stage = "AWSCURRENT";
-        let arn = "arn";
-
-        let gsv = mock!(aws_sdk_secretsmanager::Client::get_secret_value)
-            .match_requests(|req| {
-                req.secret_id() == Some(secret_id) && req.version_id() == Some(version_id)
-            })
-            .then_output(move || {
-                GetSecretValueOutput::builder()
-                    .name(secret_id)
-                    .arn(arn)
-                    .secret_string("hunter2")
-                    .version_id(version_id)
-                    .version_stages(version_stage)
-                    .build()
-            });
-
-        let describe_secret =
-            mock!(aws_sdk_secretsmanager::Client::describe_secret).then_output(move || {
-                // Cache is current. We fast-refresh
-                DescribeSecretOutput::builder()
-                    .name(secret_id)
-                    .version_ids_to_stages(version_id, vec![version_stage.into()])
-                    .build()
-            });
-
-        let asm_mock = mock_client!(
-            aws_sdk_secretsmanager,
-            RuleMode::MatchAny,
-            [&gsv, &describe_secret]
-        );
-
-        let client = SecretsManagerCachingClient::new(
-            asm_mock,
-            NonZeroUsize::new(1000).unwrap(),
-            Duration::from_secs(0),
-            true,
-        )
-        .unwrap();
-
-        // Run through this twice to test the cache expiration
-        for i in 0..2 {
-            let response = client
-                .get_secret_value(secret_id, Some(version_id), None, false)
-                .await
-                .unwrap();
-
-            assert_eq!(response.name, Some(secret_id.to_string()));
-            assert_eq!(response.secret_string, Some("hunter2".to_string()));
-            assert_eq!(response.arn, Some(arn.into()));
-            assert_eq!(
-                response.version_stages,
-                Some(vec!["AWSCURRENT".to_string()])
-            );
-            // let the entry expire
-            if i == 0 {
-                sleep(Duration::from_millis(50)).await;
-            }
-        }
-
-        assert_eq!(gsv.num_calls(), 1);
-        assert_eq!(describe_secret.num_calls(), 1);
+        assert_is_current_fast_refreshes(Some("version_id"), None).await;
     }
 
     #[tokio::test]
     async fn test_is_current_version_stage_succeeds() {
-        let secret_id = "test_secret";
-        let version_id = "version_id";
-        let version_stage = "VERSIONSTAGE";
-        let arn = "arn";
-
-        let gsv = mock!(aws_sdk_secretsmanager::Client::get_secret_value)
-            .match_requests(|req| {
-                req.secret_id() == Some(secret_id) && req.version_stage() == Some(version_stage)
-            })
-            .then_output(move || {
-                GetSecretValueOutput::builder()
-                    .name(secret_id)
-                    .arn(arn)
-                    .secret_string("hunter2")
-                    .version_id(version_id)
-                    .version_stages(version_stage)
-                    .build()
-            });
-
-        let describe_secret =
-            mock!(aws_sdk_secretsmanager::Client::describe_secret).then_output(move || {
-                // Cache is current. We fast-refresh
-                DescribeSecretOutput::builder()
-                    .name(secret_id)
-                    .version_ids_to_stages(version_id, vec![version_stage.into()])
-                    .build()
-            });
-
-        let asm_mock = mock_client!(
-            aws_sdk_secretsmanager,
-            RuleMode::MatchAny,
-            [&gsv, &describe_secret]
-        );
-
-        let client = SecretsManagerCachingClient::new(
-            asm_mock,
-            NonZeroUsize::new(1000).unwrap(),
-            Duration::from_secs(0),
-            true,
-        )
-        .unwrap();
-
-        // Run through this twice to test the cache expiration
-        for i in 0..2 {
-            let response = client
-                .get_secret_value(secret_id, None, Some(version_stage), false)
-                .await
-                .unwrap();
-
-            assert_eq!(response.name, Some(secret_id.to_string()));
-            assert_eq!(response.secret_string, Some("hunter2".to_string()));
-            assert_eq!(response.arn, Some(arn.into()));
-            assert_eq!(
-                response.version_stages,
-                Some(vec![version_stage.to_string()])
-            );
-            // let the entry expire
-            if i == 0 {
-                sleep(Duration::from_millis(50)).await;
-            }
-        }
-
-        assert_eq!(gsv.num_calls(), 1);
-        assert_eq!(describe_secret.num_calls(), 1);
+        assert_is_current_fast_refreshes(None, Some("VERSIONSTAGE")).await;
     }
 
     #[tokio::test]
     async fn test_is_current_both_version_id_and_version_stage_succeed() {
-        let secret_id = "test_secret";
-        let version_id = "version_id";
-        let version_stage = "VERSIONSTAGE";
-        let arn = "arn";
-
-        let gsv = mock!(aws_sdk_secretsmanager::Client::get_secret_value)
-            .match_requests(|req| {
-                req.secret_id() == Some(secret_id)
-                    && req.version_stage() == Some(version_stage)
-                    && req.version_id() == Some(version_id)
-            })
-            .then_output(move || {
-                GetSecretValueOutput::builder()
-                    .name(secret_id)
-                    .arn(arn)
-                    .secret_string("hunter2")
-                    .version_id(version_id)
-                    .version_stages(version_stage)
-                    .build()
-            });
-
-        let describe_secret =
-            mock!(aws_sdk_secretsmanager::Client::describe_secret).then_output(move || {
-                // Cache is current. We fast-refresh
-                DescribeSecretOutput::builder()
-                    .name(secret_id)
-                    .version_ids_to_stages(version_id, vec![version_stage.into()])
-                    .build()
-            });
-
-        let asm_mock = mock_client!(
-            aws_sdk_secretsmanager,
-            RuleMode::MatchAny,
-            [&gsv, &describe_secret]
-        );
-
-        let client = SecretsManagerCachingClient::new(
-            asm_mock,
-            NonZeroUsize::new(1000).unwrap(),
-            Duration::from_secs(0),
-            true,
-        )
-        .unwrap();
-
-        // Run through this twice to test the cache expiration
-        for i in 0..2 {
-            let response = client
-                .get_secret_value(secret_id, Some(version_id), Some(version_stage), false)
-                .await
-                .unwrap();
-
-            assert_eq!(response.name, Some(secret_id.to_string()));
-            assert_eq!(response.secret_string, Some("hunter2".to_string()));
-            assert_eq!(response.arn, Some(arn.into()));
-            assert_eq!(
-                response.version_stages,
-                Some(vec![version_stage.to_string()])
-            );
-            // let the entry expire
-            if i == 0 {
-                sleep(Duration::from_millis(50)).await;
-            }
-        }
-
-        assert_eq!(gsv.num_calls(), 1);
-        assert_eq!(describe_secret.num_calls(), 1);
+        assert_is_current_fast_refreshes(Some("version_id"), Some("VERSIONSTAGE")).await;
     }
 
     #[tokio::test]
