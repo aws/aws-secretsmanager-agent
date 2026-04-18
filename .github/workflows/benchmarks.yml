@@ -1,4 +1,4 @@
-name: Benchmarks
+name: Benchmark PR Check
 
 on:
   pull_request:
