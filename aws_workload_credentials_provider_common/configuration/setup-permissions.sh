@@ -34,5 +34,6 @@ chown root:root "${PROVIDER_DIR}"
 # Grant aws-wcp write access only to logs directory
 mkdir -p "${PROVIDER_DIR}/logs"
 chown "${PROVIDER_USER}:${PROVIDER_GROUP}" "${PROVIDER_DIR}/logs"
+chmod 750 "${PROVIDER_DIR}/logs"
 
 echo "Permissions setup complete."
