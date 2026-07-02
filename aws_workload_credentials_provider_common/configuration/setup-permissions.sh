@@ -29,6 +29,10 @@ useradd -r -M -d "${PROVIDER_DIR}" -s /sbin/nologin -g "${PROVIDER_GROUP}" -G "$
 
 mkdir -p "${PROVIDER_DIR}"
 chmod 755 "${PROVIDER_DIR}"
-chown "${PROVIDER_USER}" "${PROVIDER_DIR}"
+chown root:root "${PROVIDER_DIR}"
+
+# Grant aws-wcp write access only to logs directory
+mkdir -p "${PROVIDER_DIR}/logs"
+chown "${PROVIDER_USER}:${PROVIDER_GROUP}" "${PROVIDER_DIR}/logs"
 
 echo "Permissions setup complete."
