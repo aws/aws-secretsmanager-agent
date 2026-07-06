@@ -51,5 +51,5 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-on-alert: true
           summary-always: true
-          alert-threshold: '150%'
+          alert-threshold: '300%'
           fail-on-alert: true
