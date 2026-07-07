@@ -227,7 +227,7 @@ impl Server {
     /// # Returns
     ///
     /// * `Ok(())` - For health checks or when the request has the correct token.
-    /// * `Err((u16, String))` - A 400 or 403 error code (if header is set or token is missing or wrong) and error message.
+    /// * `Err(HttpError)` - A 400 or 403 error code (if header is set or token is missing or wrong) and error message.
     #[doc(hidden)]
     fn validate_token(
         &self,
