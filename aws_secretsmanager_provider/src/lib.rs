@@ -715,6 +715,36 @@ mod tests {
         assert_eq!(status, StatusCode::BAD_REQUEST);
     }
 
+    // Verify that a request with a recognized SSRF header but wrong value is rejected (token mismatch path).
+    #[tokio::test]
+    async fn ssrf_token_mismatch() {
+        let (status, body) = run_requests_with_headers(
+            vec![("GET", "/secretsmanager/get?secretId=MyTest")],
+            vec![("X-Aws-Parameters-Secrets-Token", "wrong-value")],
+        )
+        .await
+        .expect("request failed")
+        .pop()
+        .unwrap();
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(body, "Bad Token");
+    }
+
+    // Verify that a request with no recognized SSRF header at all is rejected (missing header path).
+    #[tokio::test]
+    async fn ssrf_token_missing_header() {
+        let (status, body) = run_requests_with_headers(
+            vec![("GET", "/secretsmanager/get?secretId=MyTest")],
+            vec![("X-Unrelated-Header", "some-value")],
+        )
+        .await
+        .expect("request failed")
+        .pop()
+        .unwrap();
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(body, "Bad Token");
+    }
+
     // Verify max conn is enforced (max conn set to 1 for testing)
     #[tokio::test]
     async fn max_conn_test() {
