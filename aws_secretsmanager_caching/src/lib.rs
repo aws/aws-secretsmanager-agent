@@ -16,19 +16,16 @@ pub mod secret_store;
 mod utils;
 
 use aws_config::BehaviorVersion;
+use aws_sdk_secretsmanager::operation::batch_get_secret_value::BatchGetSecretValueOutput;
+use aws_sdk_secretsmanager::types::Filter;
 use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use error::is_transient_error;
-use secret_store::SecretStoreError;
-
 #[cfg(debug_assertions)]
-use log::info;
-
-use output::GetSecretValueOutputDef;
-use secret_store::{MemoryStore, SecretStore};
-
+use log::{info, warn};
+use output::{BlobDef, GetSecretValueOutputDef};
+use secret_store::{MemoryStore, SecretStore, SecretStoreError};
 #[cfg(debug_assertions)]
 use std::sync::atomic::{AtomicU32, Ordering};
-
 use std::{error::Error, num::NonZeroUsize, time::Duration};
 use tokio::sync::RwLock;
 use utils::CachingLibraryInterceptor;
@@ -68,7 +65,7 @@ impl SecretsManagerCachingClient {
     /// use aws_secretsmanager_caching::SecretsManagerCachingClient;
     /// use std::num::NonZeroUsize;
     /// use std::time::Duration;
-
+    ///
     /// let asm_client = SecretsManagerClient::from_conf(
     /// Config::builder()
     ///     .behavior_version_latest()
@@ -141,15 +138,15 @@ impl SecretsManagerCachingClient {
     /// use std::num::NonZeroUsize;
     /// use std::time::Duration;
     /// use aws_config::{BehaviorVersion, Region};
-
+    ///
     /// let config = aws_config::load_defaults(BehaviorVersion::latest())
     /// .await
     /// .into_builder()
     /// .region(Region::from_static("us-west-2"))
     /// .build();
-
+    ///
     /// let asm_builder = aws_sdk_secretsmanager::config::Builder::from(&config);
-
+    ///
     /// let client = SecretsManagerCachingClient::from_builder(
     /// asm_builder,
     /// NonZeroUsize::new(1000).unwrap(),
@@ -205,9 +202,9 @@ impl SecretsManagerCachingClient {
                 );
             }
 
-            return Ok(self
+            return self
                 .refresh_secret_value(secret_id, version_id, version_stage, None)
-                .await?);
+                .await;
         }
 
         let read_lock = self.store.read().await;
@@ -282,6 +279,95 @@ impl SecretsManagerCachingClient {
             }
             Err(e) => Err(Box::new(e)),
         }
+    }
+
+    /// Batch fetch secrets from Secrets Manager and write them to the cache.
+    ///
+    /// Calls the BatchGetSecretValue API, converts successful results to
+    /// `GetSecretValueOutputDef`, and writes them to the internal store under
+    /// a single write lock. Per-secret errors are logged as warnings but do
+    /// not stop the operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `secret_id_list` - Secret ARNs or names to retrieve. Mutually exclusive with `filters`.
+    /// * `filters` - Tag-based filters for discovery. Mutually exclusive with `secret_id_list`.
+    /// * `max_results` - Maximum number of results per page (up to 20).
+    /// * `next_token` - Pagination token from a previous call.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(output))` - The raw SDK response for the caller to inspect (next_token, errors).
+    /// * `Ok(None)` - A transient error was suppressed (when `ignore_transient_errors` is true).
+    /// * `Err(...)` - A non-transient SDK error.
+    pub async fn batch_get_secret_value(
+        &self,
+        secret_id_list: Option<Vec<String>>,
+        filters: Option<Vec<Filter>>,
+        max_results: Option<i32>,
+        next_token: Option<String>,
+    ) -> Result<Option<BatchGetSecretValueOutput>, Box<dyn Error>> {
+        let response = match self
+            .asm_client
+            .batch_get_secret_value()
+            .set_secret_id_list(secret_id_list)
+            .set_filters(filters)
+            .set_max_results(max_results)
+            .set_next_token(next_token)
+            .send()
+            .await
+        {
+            Ok(resp) => resp,
+            Err(e) if self.ignore_transient_errors && is_transient_error(&e) => {
+                return Ok(None);
+            }
+            Err(e) => return Err(Box::new(e)),
+        };
+
+        // Convert SecretValueEntry → GetSecretValueOutputDef
+        let mut to_cache: Vec<(String, GetSecretValueOutputDef)> = Vec::new();
+        for entry in response.secret_values() {
+            if let Some(name) = entry.name() {
+                to_cache.push((
+                    name.to_owned(),
+                    GetSecretValueOutputDef {
+                        arn: entry.arn().map(String::from),
+                        name: Some(name.to_owned()),
+                        version_id: entry.version_id().map(String::from),
+                        secret_string: entry.secret_string().map(String::from),
+                        secret_binary: entry
+                            .secret_binary()
+                            .map(|b| BlobDef::new(b.clone().into_inner())),
+                        version_stages: Some(entry.version_stages().to_vec()),
+                        created_date: entry
+                            .created_date()
+                            .copied()
+                            .and_then(|dt| std::time::SystemTime::try_from(dt).ok()),
+                    },
+                ));
+            }
+        }
+
+        // Log per-secret errors
+        #[cfg(debug_assertions)]
+        {
+            for err in response.errors() {
+                warn!(
+                    "BatchGetSecretValue failed for {}: {}",
+                    err.secret_id().unwrap_or("unknown"),
+                    err.error_code().unwrap_or("unknown")
+                );
+            }
+        }
+
+        // Write all secrets under a single lock acquisition
+        let mut store = self.store.write().await;
+        for (name, secret) in to_cache {
+            store.write_secret_value(name, None, None, secret)?;
+        }
+        drop(store);
+
+        Ok(Some(response))
     }
 
     /// Refreshes the secret value through a GetSecretValue call to ASM
@@ -421,13 +507,23 @@ impl SecretsManagerCachingClient {
     }
 
     #[cfg(debug_assertions)]
-    fn increment_counter(&self, counter: &AtomicU32) -> () {
+    fn increment_counter(&self, counter: &AtomicU32) {
         counter.fetch_add(1, Ordering::Relaxed);
     }
 
     #[cfg(debug_assertions)]
     fn get_counter_value(&self, counter: &AtomicU32) -> u32 {
         counter.load(Ordering::Relaxed)
+    }
+
+    /// Check if a secret exists in the cache
+    ///
+    /// Reads directly from the store — returns true if the key is present and
+    /// not expired, false otherwise. Only available in test builds.
+    #[cfg(any(test, feature = "test-util"))]
+    pub async fn cache_contains(&self, secret_id: &str) -> bool {
+        let store = self.store.read().await;
+        store.get_secret_value(secret_id, None, None).is_ok()
     }
 }
 #[cfg(test)]

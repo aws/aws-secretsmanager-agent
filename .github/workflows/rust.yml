@@ -22,6 +22,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.19.4
+        with:
+          egress-policy: audit
+
       - name: Checkout 
         uses: actions/checkout@v6
       - name: Restore cached dependencies
@@ -39,6 +44,17 @@ jobs:
         run: rustup --version
       - name: Install Rust components
         run: rustup component add llvm-tools clippy rustfmt cargo
+      - name: Install ninja-build (Windows)
+        if: runner.os == 'Windows'
+        uses: seanmiddleditch/gha-setup-ninja@v6
+      - name: Install NASM (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+      - name: Install Go (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
       - name: Install Cargo binaries
         run: |
           which cargo-llvm-cov || cargo install cargo-llvm-cov
