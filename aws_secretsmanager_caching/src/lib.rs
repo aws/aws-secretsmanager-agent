@@ -526,6 +526,7 @@ impl SecretsManagerCachingClient {
         store.get_secret_value(secret_id, None, None).is_ok()
     }
 }
+
 #[cfg(test)]
 mod tests {
     use aws_sdk_secretsmanager::{
