@@ -1,6 +1,6 @@
 [package]
 name = "aws_secretsmanager_caching"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 license = "Apache-2.0"
 description = "The AWS Secrets Manager Rust caching client enables in-process caching of secrets for Rust applications."
@@ -16,9 +16,10 @@ default-https-client = [
     "aws-sdk-secretsmanager/default-https-client",
 ]
 rt-tokio = ["aws-config/rt-tokio", "aws-sdk-secretsmanager/rt-tokio"]
+default-https = ["default-https-client", "rt-tokio"]
 rustls = ["aws-sdk-secretsmanager/rustls"]
 sso = ["aws-config/sso"]
-fips = ["rustls/fips"]
+fips = ["dep:rustls-crypto", "rustls-crypto/fips", "default-https"]
 test-util = []
 
 [dependencies]
@@ -32,7 +33,7 @@ thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
 linked-hash-map = "0.5.6"
 aws-config = { version = "1", default-features = false }
-rustls = "0.23"
+rustls-crypto = { package = "rustls", version = "0.23", optional = true }
 log = "0.4.29"
 
 [dev-dependencies]
