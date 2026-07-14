@@ -63,5 +63,4 @@ jobs:
 
       - name: Upload artifacts to S3
         run: |
-          aws s3 cp target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }} \
-            "s3://${{ secrets.STAGING_BUCKET }}/${{ github.run_id }}/${{ matrix.target }}/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }}"
+          aws s3 cp target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }} "s3://${{ secrets.STAGING_BUCKET }}/${{ github.run_id }}/${{ matrix.target }}/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }}"
