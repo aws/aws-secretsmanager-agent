@@ -3,6 +3,9 @@ name: Staging
 on:
   workflow_call:
   workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * 3"
+      timezone: "America/Los_Angeles"
 
 env:
   CARGO_TERM_COLOR: always
