@@ -146,7 +146,17 @@ fn acm_reload(
         // Validate before overwriting the live config
         ConfigValidator::new().validate(Some(config.as_str()))?;
 
-        std::fs::copy(config, DEFAULT_CONFIG_PATH)?;
+        // Skip the copy when the provided config already resolves to the default
+        // path. `std::fs::copy` opens the destination with truncate, so a same-file
+        // copy would empty the live config before it's read back, wiping it out
+        // (unlike `cp`, which guards against copying a file onto itself).
+        // Permissions are still (re-)applied below and the reload continues.
+        if should_copy_config(
+            std::path::Path::new(config),
+            std::path::Path::new(DEFAULT_CONFIG_PATH),
+        )? {
+            std::fs::copy(config, DEFAULT_CONFIG_PATH)?;
+        }
         std::fs::set_permissions(DEFAULT_CONFIG_PATH, std::fs::Permissions::from_mode(0o440))?;
 
         let status = std::process::Command::new("chown")
@@ -205,6 +215,21 @@ fn acm_reload(config_path: Option<String>) -> Result<(), Box<dyn std::error::Err
     }
 
     Ok(())
+}
+
+/// Returns whether `src` should be copied to `dst`, i.e. they are not the same
+/// file on disk.
+///
+/// Both paths are canonicalized so symlinks and relative segments are resolved.
+/// `src` must exist (it is validated before this is called); failing to
+/// canonicalize it surfaces a clear error rather than falling through to a
+/// confusing copy failure. `dst` may not exist yet (first-time reload), in
+/// which case it cannot be the same file, so the copy should proceed.
+#[cfg(unix)]
+fn should_copy_config(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<bool> {
+    let src_canonical = std::fs::canonicalize(src)?;
+    let dst_canonical = std::fs::canonicalize(dst).ok();
+    Ok(dst_canonical.as_ref() != Some(&src_canonical))
 }
 
 #[cfg(unix)]
@@ -313,6 +338,79 @@ fn generate_installer_json(validated: &ValidatedConfig) -> String {
         certificates,
     })
     .unwrap()
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::should_copy_config;
+    use std::os::unix::fs::symlink;
+    use tempfile::TempDir;
+
+    #[test]
+    fn skips_copy_for_identical_path() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "a = 1").unwrap();
+
+        assert!(!should_copy_config(&path, &path).unwrap());
+    }
+
+    #[test]
+    fn skips_copy_for_relative_and_absolute_forms() {
+        let dir = TempDir::new().unwrap();
+        let abs = dir.path().join("config.toml");
+        std::fs::write(&abs, "a = 1").unwrap();
+        // A path with a redundant "." segment resolves to the same file.
+        let dotted = dir.path().join(".").join("config.toml");
+
+        assert!(!should_copy_config(&abs, &dotted).unwrap());
+    }
+
+    #[test]
+    fn skips_copy_for_symlink_to_target() {
+        let dir = TempDir::new().unwrap();
+        let target = dir.path().join("config.toml");
+        std::fs::write(&target, "a = 1").unwrap();
+        let link = dir.path().join("config-link.toml");
+        symlink(&target, &link).unwrap();
+
+        assert!(!should_copy_config(&link, &target).unwrap());
+    }
+
+    #[test]
+    fn copies_for_distinct_files() {
+        let dir = TempDir::new().unwrap();
+        let a = dir.path().join("a.toml");
+        let b = dir.path().join("b.toml");
+        std::fs::write(&a, "a = 1").unwrap();
+        std::fs::write(&b, "b = 2").unwrap();
+
+        assert!(should_copy_config(&a, &b).unwrap());
+    }
+
+    #[test]
+    fn copies_when_destination_missing() {
+        let dir = TempDir::new().unwrap();
+        let src = dir.path().join("config.toml");
+        std::fs::write(&src, "a = 1").unwrap();
+        let missing = dir.path().join("does-not-exist.toml");
+
+        // A missing destination cannot be the same file, so the copy proceeds
+        // (e.g. a first-time reload that creates the default config).
+        assert!(should_copy_config(&src, &missing).unwrap());
+    }
+
+    #[test]
+    fn errors_when_source_missing() {
+        let dir = TempDir::new().unwrap();
+        let missing = dir.path().join("does-not-exist.toml");
+        let dst = dir.path().join("config.toml");
+        std::fs::write(&dst, "a = 1").unwrap();
+
+        // The source is validated before this is called, so an unresolvable
+        // source surfaces a clear error instead of a confusing copy failure.
+        assert!(should_copy_config(&missing, &dst).is_err());
+    }
 }
 
 /// Resolves the config file path: uses the given path if provided,
