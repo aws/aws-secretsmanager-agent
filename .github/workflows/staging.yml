@@ -4,7 +4,7 @@ on:
   workflow_call:
   workflow_dispatch:
   schedule:
-    - cron: "0 12 * * 3"
+    - cron: "0 12 * * *" # Daily at noon Pacific time
       timezone: "America/Los_Angeles"
 
 env:
@@ -14,7 +14,6 @@ permissions:
   contents: read
   id-token: write
   # Needed for integ tests
-  issues: write
   pull-requests: write
 
 jobs:
