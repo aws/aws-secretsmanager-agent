@@ -3,6 +3,9 @@ name: Staging
 on:
   workflow_call:
   workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *" # Daily at noon Pacific time
+      timezone: "America/Los_Angeles"
 
 env:
   CARGO_TERM_COLOR: always
@@ -10,6 +13,8 @@ env:
 permissions:
   contents: read
   id-token: write
+  # Needed for integ tests
+  pull-requests: write
 
 jobs:
   integ:
@@ -60,5 +65,4 @@ jobs:
 
       - name: Upload artifacts to S3
         run: |
-          aws s3 cp target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }} \
-            "s3://${{ secrets.STAGING_BUCKET }}/${{ github.run_id }}/${{ matrix.target }}/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }}"
+          aws s3 cp target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }} "s3://${{ secrets.STAGING_BUCKET }}/${{ github.run_id }}/${{ matrix.target }}/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }}"
