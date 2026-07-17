@@ -69,3 +69,4 @@ jobs:
             else
               cargo publish -p "$crate"
             fi
+          done
