@@ -69,4 +69,5 @@ jobs:
             else
               cargo publish -p "$crate"
             fi
+            echo "::endgroup::"
           done
