@@ -21,6 +21,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
+          allow-unsafe-pr-checkout: true
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6
