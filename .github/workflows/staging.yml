@@ -29,10 +29,13 @@ jobs:
         include:
           - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            ext: ""
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
+            ext: ""
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
+            ext: ".exe"
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Harden Runner
@@ -52,7 +55,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: aws-wcp-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }}
+          path: target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ matrix.ext }}
           if-no-files-found: error
           retention-days: 1
 
@@ -64,5 +67,10 @@ jobs:
           aws-region: us-west-2
 
       - name: Upload artifacts to S3
+        env:
+          BUCKET: ${{ runner.os == 'Windows' && secrets.WINDOWS_STAGING_BUCKET || secrets.STAGING_BUCKET }}
+          KEY_PREFIX: ${{ runner.os == 'Windows' && format('{0}/', secrets.STAGING_WINDOWS_BIN_PATH) || '' }}
+          BIN: aws-workload-credentials-provider${{ matrix.ext }}
+        shell: bash
         run: |
-          aws s3 cp target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }} "s3://${{ secrets.STAGING_BUCKET }}/${{ github.run_id }}/${{ matrix.target }}/aws-workload-credentials-provider${{ runner.os == 'Windows' && '.exe' || '' }}"
+          aws s3 cp "target/${{ matrix.target }}/release/$BIN" "s3://$BUCKET/$KEY_PREFIX${{ github.run_id }}/${{ matrix.target }}/$BIN"

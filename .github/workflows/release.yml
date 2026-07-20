@@ -57,6 +57,10 @@ jobs:
           aws-region: us-west-2
 
       - name: Upload artifacts to S3
+        env:
+          RELEASE_BUCKET: ${{ secrets.RELEASE_BUCKET }}
+          WINDOWS_RELEASE_BUCKET: ${{ secrets.WINDOWS_RELEASE_BUCKET }}
+          WINDOWS_BIN_PATH: ${{ secrets.RELEASE_WINDOWS_BIN_PATH }}
         run: |
           # Each downloaded artifact is a directory named "aws-wcp-<target>"
           # (e.g. artifacts/aws-wcp-x86_64-unknown-linux-gnu/) containing a
@@ -71,9 +75,19 @@ jobs:
               exit 1
             fi
             binary=$(find "$dir" -type f -name 'aws-workload-credentials-provider*')
+
+            # Windows targets go to a separate bucket under a key prefix
+            if [[ "$target" == *windows* ]]; then
+              bucket="$WINDOWS_RELEASE_BUCKET"
+              key_prefix="${WINDOWS_BIN_PATH}/"
+            else
+              bucket="$RELEASE_BUCKET"
+              key_prefix=""
+            fi
+
             aws s3api put-object \
-              --bucket "${{ secrets.RELEASE_BUCKET }}" \
-              --key "${{ inputs.version }}/${target}/$(basename "$binary")" \
+              --bucket "$bucket" \
+              --key "${key_prefix}${{ inputs.version }}/${target}/$(basename "$binary")" \
               --body "$binary" \
               --if-none-match "*"
           done
