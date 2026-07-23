@@ -11,6 +11,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: publish-crates
+  cancel-in-progress: false
+
 permissions:
   contents: read
   id-token: write
