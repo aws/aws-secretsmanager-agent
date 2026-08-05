@@ -20,8 +20,24 @@ jobs:
   integ:
     uses: ./.github/workflows/integration-tests.yml
     secrets: inherit
+  validate-secrets:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Validate required secrets
+        env:
+          STAGING_BUCKET: ${{ secrets.STAGING_BUCKET }}
+          STAGING_WINDOWS_BUCKET: ${{ secrets.STAGING_WINDOWS_BUCKET }}
+          STAGING_WINDOWS_BIN_PATH: ${{ secrets.STAGING_WINDOWS_BIN_PATH }}
+        run: |
+          for var in STAGING_BUCKET STAGING_WINDOWS_BUCKET STAGING_WINDOWS_BIN_PATH; do
+            if [[ -z "${!var}" ]]; then
+              echo "::error::Required secret $var is empty or unset"
+              exit 1
+            fi
+          done
   publish:
-    needs: [integ]
+    needs: [integ, validate-secrets]
     environment: staging
     strategy:
       fail-fast: false
@@ -68,7 +84,7 @@ jobs:
 
       - name: Upload artifacts to S3
         env:
-          BUCKET: ${{ runner.os == 'Windows' && secrets.WINDOWS_STAGING_BUCKET || secrets.STAGING_BUCKET }}
+          BUCKET: ${{ runner.os == 'Windows' && secrets.STAGING_WINDOWS_BUCKET || secrets.STAGING_BUCKET }}
           KEY_PREFIX: ${{ runner.os == 'Windows' && format('{0}/', secrets.STAGING_WINDOWS_BIN_PATH) || '' }}
           BIN: aws-workload-credentials-provider${{ matrix.ext }}
         shell: bash

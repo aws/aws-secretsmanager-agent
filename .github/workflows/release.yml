@@ -43,6 +43,19 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Validate required secrets
+        env:
+          RELEASE_BUCKET: ${{ secrets.RELEASE_BUCKET }}
+          RELEASE_WINDOWS_BUCKET: ${{ secrets.RELEASE_WINDOWS_BUCKET }}
+          RELEASE_WINDOWS_BIN_PATH: ${{ secrets.RELEASE_WINDOWS_BIN_PATH }}
+        run: |
+          for var in RELEASE_BUCKET RELEASE_WINDOWS_BUCKET RELEASE_WINDOWS_BIN_PATH; do
+            if [[ -z "${!var}" ]]; then
+              echo "::error::Required secret $var is empty or unset"
+              exit 1
+            fi
+          done
+
       - name: Download binary artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -59,8 +72,8 @@ jobs:
       - name: Upload artifacts to S3
         env:
           RELEASE_BUCKET: ${{ secrets.RELEASE_BUCKET }}
-          WINDOWS_RELEASE_BUCKET: ${{ secrets.WINDOWS_RELEASE_BUCKET }}
-          WINDOWS_BIN_PATH: ${{ secrets.RELEASE_WINDOWS_BIN_PATH }}
+          RELEASE_WINDOWS_BUCKET: ${{ secrets.RELEASE_WINDOWS_BUCKET }}
+          RELEASE_WINDOWS_BIN_PATH: ${{ secrets.RELEASE_WINDOWS_BIN_PATH }}
         run: |
           # Each downloaded artifact is a directory named "aws-wcp-<target>"
           # (e.g. artifacts/aws-wcp-x86_64-unknown-linux-gnu/) containing a
@@ -78,8 +91,8 @@ jobs:
 
             # Windows targets go to a separate bucket under a key prefix
             if [[ "$target" == *windows* ]]; then
-              bucket="$WINDOWS_RELEASE_BUCKET"
-              key_prefix="${WINDOWS_BIN_PATH}/"
+              bucket="$RELEASE_WINDOWS_BUCKET"
+              key_prefix="${RELEASE_WINDOWS_BIN_PATH}/"
             else
               bucket="$RELEASE_BUCKET"
               key_prefix=""
