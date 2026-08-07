@@ -43,6 +43,19 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Validate required secrets
+        env:
+          RELEASE_BUCKET: ${{ secrets.RELEASE_BUCKET }}
+          RELEASE_WINDOWS_BUCKET: ${{ secrets.RELEASE_WINDOWS_BUCKET }}
+          RELEASE_WINDOWS_BIN_PATH: ${{ secrets.RELEASE_WINDOWS_BIN_PATH }}
+        run: |
+          for var in RELEASE_BUCKET RELEASE_WINDOWS_BUCKET RELEASE_WINDOWS_BIN_PATH; do
+            if [[ -z "${!var}" ]]; then
+              echo "::error::Required secret $var is empty or unset"
+              exit 1
+            fi
+          done
+
       - name: Download binary artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -57,6 +70,10 @@ jobs:
           aws-region: us-west-2
 
       - name: Upload artifacts to S3
+        env:
+          RELEASE_BUCKET: ${{ secrets.RELEASE_BUCKET }}
+          RELEASE_WINDOWS_BUCKET: ${{ secrets.RELEASE_WINDOWS_BUCKET }}
+          RELEASE_WINDOWS_BIN_PATH: ${{ secrets.RELEASE_WINDOWS_BIN_PATH }}
         run: |
           # Each downloaded artifact is a directory named "aws-wcp-<target>"
           # (e.g. artifacts/aws-wcp-x86_64-unknown-linux-gnu/) containing a
@@ -71,9 +88,19 @@ jobs:
               exit 1
             fi
             binary=$(find "$dir" -type f -name 'aws-workload-credentials-provider*')
+
+            # Windows targets go to a separate bucket under a key prefix
+            if [[ "$target" == *windows* ]]; then
+              bucket="$RELEASE_WINDOWS_BUCKET"
+              key_prefix="${RELEASE_WINDOWS_BIN_PATH}/"
+            else
+              bucket="$RELEASE_BUCKET"
+              key_prefix=""
+            fi
+
             aws s3api put-object \
-              --bucket "${{ secrets.RELEASE_BUCKET }}" \
-              --key "${{ inputs.version }}/${target}/$(basename "$binary")" \
+              --bucket "$bucket" \
+              --key "${key_prefix}${{ inputs.version }}/${target}/$(basename "$binary")" \
               --body "$binary" \
               --if-none-match "*"
           done
