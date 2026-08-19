@@ -89,4 +89,4 @@ jobs:
           BIN: aws-workload-credentials-provider${{ matrix.ext }}
         shell: bash
         run: |
-          aws s3 cp "target/${{ matrix.target }}/release/$BIN" "s3://$BUCKET/$KEY_PREFIX${{ github.run_id }}/${{ matrix.target }}/$BIN"
+          aws s3 cp "target/${{ matrix.target }}/release/$BIN" "s3://$BUCKET/${KEY_PREFIX}${{ github.run_id }}/${{ matrix.target }}/$BIN"
