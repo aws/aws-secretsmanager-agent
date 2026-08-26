@@ -13,7 +13,7 @@
     On Windows, the ACM refresh executor calls `schtasks /Run` against a
     scheduled task whose name is derived from the cert ARN. The tests
     register a per-cert scheduled task as the current user with Interactive
-    logon — no admin privileges required.
+    logon; no admin privileges required.
 #>
 
 $ErrorActionPreference = "Stop"

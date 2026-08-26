@@ -73,6 +73,28 @@ jobs:
           files: ./codecov.json
           fail_ci_if_error: true
           use_oidc: true
+      - name: Analyze the PowerShell scripts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser -AcceptLicense
+          # ParseError is its own severity: filtering to Error and Warning alone
+          # would report a script PowerShell cannot even parse as clean.
+          #
+          # Excluded rules are style rather than defect: Write-Host is how these
+          # scripts talk to an operator's console; common.ps1 is dot-sourced, so
+          # its constants look unused; and the verb, noun, and ShouldProcess
+          # conventions would mean renaming existing helpers across every caller.
+          $findings = Invoke-ScriptAnalyzer -Path . -Recurse `
+            -Severity ParseError, Error, Warning `
+            -ExcludeRule PSAvoidUsingWriteHost, PSUseDeclaredVarsMoreThanAssignments, `
+              PSUseApprovedVerbs, PSUseSingularNouns, PSUseShouldProcessForStateChangingFunctions
+          if ($findings) {
+            $findings | Format-Table RuleName, Line, Message -AutoSize | Out-String | Write-Host
+            throw "PSScriptAnalyzer reported $($findings.Count) finding(s)"
+          }
+          Write-Host "PSScriptAnalyzer: clean"
+
       - name: Lint
         run: cargo fmt --all -- --check
       - name: Clippy
