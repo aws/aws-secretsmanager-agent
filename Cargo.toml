@@ -5,5 +5,5 @@ members = ["aws_workload_credentials_provider", "aws_workload_credentials_provid
 
 [profile.release]
 codegen-units = 1
-lto = "thin"
+lto = true
 strip = true
