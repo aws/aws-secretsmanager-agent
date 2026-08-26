@@ -1,0 +1,55 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Log toolchain versions
+        run: rustup --version && rustc --version && cargo --version
+
+      - name: Run benchmarks
+        working-directory: aws_secretsmanager_caching
+        run: cargo bench --bench benchmark -- --output-format bencher | tee ../bench-result.txt
+
+      - name: Download previous benchmark data
+        uses: actions/cache@v4
+        with:
+          path: ./cache
+          key: benchmark-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            benchmark-${{ runner.os }}
+
+      - name: Compare benchmarks
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Secrets Manager Caching Benchmarks
+          tool: cargo
+          output-file-path: bench-result.txt
+          external-data-json-path: ./cache/benchmark-data.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-alert: true
+          summary-always: true
+          alert-threshold: '300%'
+          fail-on-alert: true

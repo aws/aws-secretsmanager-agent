@@ -19,6 +19,7 @@ updates:
       dependencies:
         applies-to: version-updates
         update-types:
+          - major
           - minor
           - patch
   - package-ecosystem: "docker"

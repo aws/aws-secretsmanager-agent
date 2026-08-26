@@ -22,29 +22,45 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rs/toolchain@v1
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.19.4
         with:
-          toolchain: nightly
-          override: true
-          components: rustfmt, clippy, llvm-tools-preview
-      - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov
-      - name: Install ninja-build tool for aws-lc-fips-sys on Windows
+          egress-policy: audit
+
+      - name: Checkout 
+        uses: actions/checkout@v6
+      - name: Restore cached dependencies
+        uses: actions/cache/restore@v5
+        id: cache-restore
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Rustup version
+        run: rustup --version
+      - name: Install Rust components
+        run: rustup component add llvm-tools clippy rustfmt cargo
+      - name: Install ninja-build (Windows)
         if: runner.os == 'Windows'
         uses: seanmiddleditch/gha-setup-ninja@v6
-      - name: Install NASM for aws-lc-fips-sys on Windows
+      - name: Install NASM (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
-      - name: Install golang for aws-lc-fips-sys on macos
-        if: runner.os == 'MacOS'
+      - name: Install Go (macOS)
+        if: runner.os == 'macOS'
         uses: actions/setup-go@v5
         with:
-          go-version: "stable"
-      - name: Check licenses
+          go-version: 'stable'
+      - name: Install Cargo binaries
         run: |
-          cargo install cargo-deny
-          cargo-deny check licenses
+          which cargo-llvm-cov || cargo install cargo-llvm-cov
+          which cargo-deny || cargo install cargo-deny
+      - name: Check licenses
+        run: cargo-deny check licenses
       - name: Build
         run: cargo build --verbose
       - name: Run tests
@@ -52,7 +68,7 @@ jobs:
       - name: Code Coverage
         run: cargo llvm-cov --all-features --workspace --exclude integration-tests --codecov --output-path ./codecov.json
       - name: Publish Code Coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: ./codecov.json
           fail_ci_if_error: true
@@ -61,3 +77,14 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy --all-targets --all-features
+      - name: Cache dependencies
+        uses: actions/cache/save@v5
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}

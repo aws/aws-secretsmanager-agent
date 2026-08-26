@@ -1,0 +1,137 @@
+name: Staging
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *" # Daily at noon Pacific time
+      timezone: "America/Los_Angeles"
+
+env:
+  CARGO_TERM_COLOR: always
+  # Linux binaries are built inside Amazon Linux 2 so they link against its
+  # glibc and stay runnable on AL2 and anything newer
+  AL2_IMAGE: public.ecr.aws/amazonlinux/amazonlinux:2
+  AL2_GLIBC_VERSION: "2.26"
+
+permissions:
+  contents: read
+  id-token: write
+  # Needed for integ tests
+  pull-requests: write
+
+jobs:
+  integ:
+    uses: ./.github/workflows/integration-tests.yml
+    secrets: inherit
+  validate-secrets:
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Validate required secrets
+        env:
+          STAGING_BUCKET: ${{ secrets.STAGING_BUCKET }}
+          STAGING_WINDOWS_BUCKET: ${{ secrets.STAGING_WINDOWS_BUCKET }}
+          STAGING_WINDOWS_BIN_PATH: ${{ secrets.STAGING_WINDOWS_BIN_PATH }}
+        run: |
+          for var in STAGING_BUCKET STAGING_WINDOWS_BUCKET STAGING_WINDOWS_BIN_PATH; do
+            if [[ -z "${!var}" ]]; then
+              echo "::error::Required secret $var is empty or unset"
+              exit 1
+            fi
+          done
+  publish:
+    needs: [integ, validate-secrets]
+    environment: staging
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            ext: ""
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: ".exe"
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      # The runner's own glibc is far newer than AL2's, so Linux targets are
+      # built in an AL2 container instead. The container is driven with
+      # `docker run` rather than the job-level `container:` key because the
+      # Node.js used by JavaScript actions needs a newer glibc than AL2 has.
+      - name: Build release binary (Amazon Linux 2)
+        if: runner.os == 'Linux'
+        run: |
+          docker run --rm \
+            --volume "$PWD:/src" \
+            --workdir /src \
+            --env CARGO_TERM_COLOR \
+            --env TARGET=${{ matrix.target }} \
+            "$AL2_IMAGE" \
+            bash -euo pipefail -c '
+              # aws-lc-sys compiles C with cmake; AL2 ships cmake 3 as "cmake3"
+              yum install -y gcc gcc-c++ make cmake3 tar gzip
+              ln -s /usr/bin/cmake3 /usr/local/bin/cmake
+              curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+                | sh -s -- -y --profile minimal --default-toolchain stable
+              source "$HOME/.cargo/env"
+              cargo build --release --target "$TARGET"
+            '
+          # The container builds as root, so hand the outputs back to the runner
+          sudo chown -R "$(id -u):$(id -g)" target
+
+      - name: Build release binary
+        if: runner.os == 'Windows'
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # Guards against the build image drifting to a newer glibc than AL2's
+      - name: Verify glibc requirement
+        if: runner.os == 'Linux'
+        run: |
+          BIN=target/${{ matrix.target }}/release/aws-workload-credentials-provider
+          required=$(readelf --dyn-syms --wide "$BIN" \
+            | grep -oE 'GLIBC_[0-9]+\.[0-9]+' | sed 's/GLIBC_//' | sort -uV)
+          echo "Required glibc versions: $(echo $required)"
+          highest=$(echo "$required" | tail -n1)
+          if [[ "$(printf '%s\n%s\n' "$highest" "$AL2_GLIBC_VERSION" | sort -V | tail -n1)" \
+                != "$AL2_GLIBC_VERSION" ]]; then
+            echo "::error::$BIN requires glibc $highest, newer than Amazon Linux 2's $AL2_GLIBC_VERSION"
+            exit 1
+          fi
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aws-wcp-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/aws-workload-credentials-provider${{ matrix.ext }}
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@99214aa6889fcddfa57764031d71add364327e59 # v6.1.3
+        with:
+          role-to-assume: ${{ secrets.STAGING_ROLE_ARN }}
+          role-session-name: aws-wcp-staging-${{ github.run_id }}
+          aws-region: us-west-2
+
+      - name: Upload artifacts to S3
+        env:
+          BUCKET: ${{ runner.os == 'Windows' && secrets.STAGING_WINDOWS_BUCKET || secrets.STAGING_BUCKET }}
+          KEY_PREFIX: ${{ runner.os == 'Windows' && format('{0}/', secrets.STAGING_WINDOWS_BIN_PATH) || '' }}
+          BIN: aws-workload-credentials-provider${{ matrix.ext }}
+        shell: bash
+        run: |
+          aws s3 cp "target/${{ matrix.target }}/release/$BIN" "s3://$BUCKET/${KEY_PREFIX}${{ github.run_id }}/${{ matrix.target }}/$BIN"

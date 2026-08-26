@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     strategy:
@@ -20,11 +23,16 @@ jobs:
     runs-on: ${{ matrix.runner }}
 
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.19.4
+        with:
+          egress-policy: audit
+
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Build the Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: ${{ matrix.os }}/${{ matrix.arch }}
