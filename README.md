@@ -944,7 +944,7 @@ Your AWS credentials must have the following permissions:
 
 The role chaining integration tests require two IAM roles in the same account:
 
-1. **`asm-role-chaining-role`** — Must be assumable by the test runner's identity and have `secretsmanager:GetSecretValue` and `secretsmanager:DescribeSecret` permissions.
+1. **`asm-role-chaining-role`** — Must be assumable by the test runner's identity and have `secretsmanager:GetSecretValue`, `secretsmanager:DescribeSecret`, and `secretsmanager:BatchGetSecretValue` permissions.
 
 2. **`provider-no-access-role`** — Must be assumable by the test runner's identity but have *no* Secrets Manager permissions. Used to verify access-denied behavior.
 
