@@ -36,6 +36,7 @@ To download the source code, see [https://github\.com/aws/aws\-workload\-credent
 - [AWS Workload Credentials Provider](#aws-workload-credentials-provider)
   - [Secrets Manager capability](#secrets-manager-capability)
   - [Certificate Management capability](#certificate-management-capability)
+  - [Quick install](#quick-install)
   - [Step 1: Build the Workload Credentials Provider binary](#step-1-build-the-workload-credentials-provider-binary)
       - [\[ RPM-based systems \]](#-rpm-based-systems-)
       - [\[ Debian-based systems \]](#-debian-based-systems-)
@@ -69,6 +70,25 @@ To download the source code, see [https://github\.com/aws/aws\-workload\-credent
       - [Option 1: Using the test script](#option-1-using-the-test-script)
       - [Option 2: Manual execution](#option-2-manual-execution)
     - [Test Organization](#test-organization)
+
+## Quick install<a name="workload-credentials-provider-quick-install"></a>
+
+The bootstrap installer downloads a released binary and the matching configuration directory, then runs the install script for you\. Use it unless you need to build from source, in which case follow Step 1 and Step 2 instead\.
+
+```sh
+installer=$(mktemp) && trap 'rm -f "$installer"' EXIT &&
+  curl --proto '=https' --tlsv1.2 -fsSL -o "$installer" \
+    https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.sh &&
+  sudo AWCP_VERSION=3.1.1 bash "$installer" --config /path/to/config.toml
+```
+
+`AWCP_VERSION` is required and must name a released, tagged version\. The script downloads the binary for your architecture from the artifact host and the service units and install scripts from the `v$AWCP_VERSION` tag, then hands off to the `install` script described in [Step 2](#workload-credentials-provider-install)\. It also accepts `--dry-run`, which downloads everything, keeps it, and prints where, without installing\.
+
+Download to a file rather than piping into a shell: `bash -c "$(curl …)"` exits 0 when the download fails, because the substitution is simply empty, so a failed install reads as a successful one\. If you do use that form, options must go after a `--`, since the shell would otherwise consume the first one as `$0`\.
+
+As with Step 2, add the user account that your application runs under to the `aws-wcp-token` group so it can read the SSRF token file\.
+
+------
 
 ## Step 1: Build the Workload Credentials Provider binary<a name="workload-credentials-provider-build"></a>
 
