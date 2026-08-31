@@ -1,8 +1,9 @@
 #!/bin/sh
 # Bootstrap installer for the AWS Workload Credentials Provider on Linux.
 #
-#   installer=$(mktemp) && curl --proto '=https' --tlsv1.2 -fsSL -o "$installer" \
-#     https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.sh &&
+#   installer=$(mktemp) && trap 'rm -f "$installer"' EXIT &&
+#     curl --proto '=https' --tlsv1.2 -fsSL -o "$installer" \
+#       https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.sh &&
 #     sudo AWCP_VERSION=3.1.1 bash "$installer" --config /path/to/config.toml
 #
 # Downloaded to a file rather than piped into a shell, because `bash -c "$(curl
@@ -51,7 +52,7 @@ main() {
     esac
 
     [ "$(id -u)" -eq 0 ] || die "must run as root"
-    [ "$(uname -s)" = Linux ] || die "unsupported OS: $(uname -s). On Windows, follow the Windows quick install in the README"
+    [ "$(uname -s)" = Linux ] || die "unsupported OS: $(uname -s). This installer is Linux only"
 
     case "$(uname -m)" in
         x86_64 | amd64) target=x86_64-unknown-linux-gnu ;;
