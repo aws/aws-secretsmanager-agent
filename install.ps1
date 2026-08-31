@@ -79,7 +79,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
 # services have been registered, so it is checked before any of that happens.
 $policy = Get-ExecutionPolicy
 if ($policy -in @("Restricted", "AllSigned")) {
-    throw "PowerShell execution policy is $policy, which blocks the unsigned install scripts this downloads. Re-run as 'powershell.exe -ExecutionPolicy Bypass -File <script>', or set 'Set-ExecutionPolicy -Scope Process Bypass' first."
+    throw "PowerShell execution policy is $policy, which blocks the unsigned install scripts this downloads."
 }
 
 $current = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
