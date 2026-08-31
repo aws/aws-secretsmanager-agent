@@ -4,6 +4,8 @@
 # Sets up user, group, and directory permissions.
 #
 
+set -e
+
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 

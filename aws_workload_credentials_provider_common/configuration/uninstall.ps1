@@ -98,6 +98,10 @@ if (Test-Path $SSRF_TOKEN_FILE) {
 Write-Step "Remove install directory"
 
 if (Test-Path $INSTALL_DIR) {
+    # Windows won't delete a directory that is a process's current directory, and
+    # this script is installed inside the one being removed, so running it from
+    # there would delete the files and then fail on the directory itself.
+    Set-Location $env:SystemRoot
     Remove-Item -Path $INSTALL_DIR -Recurse -Force
     Write-Host "  Removed $INSTALL_DIR"
 } else {

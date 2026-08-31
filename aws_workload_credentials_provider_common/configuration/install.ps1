@@ -160,6 +160,9 @@ Copy-Item -Path $providerBinary -Destination "$BIN_DIR\$PROVIDER_EXE" -Force
 Copy-Item -Path (Join-Path $SCRIPT_DIR "aws-workload-credentials-provider-token.ps1") -Destination "$BIN_DIR\aws-workload-credentials-provider-token.ps1" -Force
 Copy-Item -Path (Join-Path $SCRIPT_DIR "common.ps1") -Destination "$BIN_DIR\common.ps1" -Force
 Copy-Item -Path (Join-Path $SCRIPT_DIR "acmReloadConfig.ps1") -Destination "$BIN_DIR\acmReloadConfig.ps1" -Force
+# Staged so the host can be cleaned up later: a bootstrap install deletes the
+# downloaded bundle, which would otherwise be the only copy.
+Copy-Item -Path (Join-Path $SCRIPT_DIR "uninstall.ps1") -Destination "$BIN_DIR\uninstall.ps1" -Force
 Write-Host "  Installed $BIN_DIR\$PROVIDER_EXE"
 
 Write-Step "Register Windows Services"
@@ -192,7 +195,7 @@ if ($secretsManagerEnabled) {
 
     # Create the token file with locked-down ACLs. The seed token service
     # (running as SYSTEM) writes the value at boot. The ASM service account
-    # gets read-only access — only SYSTEM can write the token.
+    # gets read-only access; only SYSTEM can write the token.
     New-Item -ItemType File -Path $SSRF_TOKEN_FILE -Force | Out-Null
 
     icacls $SSRF_TOKEN_FILE /inheritance:r /Q | Out-Null

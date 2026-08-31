@@ -4,6 +4,10 @@
 # Installs SM provider (HTTP interface) and ACM provider (certificate management).
 #
 
+# Set here as well as on the shebang, which is dropped when the file is run as
+# `bash install`, so the behavior doesn't depend on how the caller invoked it.
+set -e
+
 PATH=/bin:/usr/bin:/sbin:/usr/sbin
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -23,6 +27,10 @@ Options:
     --no-privileges      Skip Linux capabilities on ACM service
     --no-sudoers         Skip sudoers generation
     -h, --help           Show this help message
+
+Exit codes:
+    0                    Installed, and the services that are enabled are running
+    3                    Installed, but a service is not running
 EOF
     exit 0
 }
@@ -52,9 +60,14 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-if [ -n "${CONFIG_FILE}" ] && [ ! -f "${CONFIG_FILE}" ]; then
-    echo "Cannot find config file: ${CONFIG_FILE}" >&2
-    exit 1
+if [ -n "${CONFIG_FILE}" ]; then
+    if [ ! -f "${CONFIG_FILE}" ]; then
+        echo "Cannot find config file: ${CONFIG_FILE}" >&2
+        exit 1
+    fi
+    # Resolved before the cd below, so a relative path keeps meaning what the
+    # caller meant rather than resolving against the script directory.
+    CONFIG_FILE="$(cd "$(dirname "${CONFIG_FILE}")" && pwd)/$(basename "${CONFIG_FILE}")"
 fi
 
 #
@@ -73,18 +86,68 @@ if [ ! -f "${PROVIDER_SOURCE_DIR}/${PROVIDER_BIN}" ]; then
     exit 1
 fi
 
+# Checks that run before anything is created, so a binary that can't load here
+# or a config that gets rejected costs nothing but the check.
+#
+# Both need to exec the source binary, which isn't always possible: release
+# artifacts arrive mode 644 (fixed by `install -m 755` below) and a staging
+# directory can be on a noexec mount. A trivial script in that directory tells
+# a directory that refuses every exec apart from a binary that won't run on this
+# host, which the exec status alone can't: noexec, a wrong-architecture ELF and a
+# missing loader all exit 126. A read-only directory can't be probed either, so
+# the whole attempt is one condition.
+SOURCE_BIN="${PROVIDER_SOURCE_DIR}/${PROVIDER_BIN}"
+PROBE="${PROVIDER_SOURCE_DIR}/.exec-probe.$$"
+SOURCE_DIR_EXEC=false
+if (printf '#!/bin/sh\n' > "${PROBE}" && chmod 755 "${PROBE}" && "${PROBE}") 2> /dev/null; then
+    SOURCE_DIR_EXEC=true
+fi
+rm -f "${PROBE}"
+
+CAN_EXEC_SOURCE=false
+if [ "${SOURCE_DIR_EXEC}" = false ]; then
+    echo "Skipping pre-flight checks: cannot exec from ${PROVIDER_SOURCE_DIR}" >&2
+elif [ ! -x "${SOURCE_BIN}" ]; then
+    echo "Skipping pre-flight checks: ${SOURCE_BIN} is not executable" >&2
+elif "${SOURCE_BIN}" --version > /dev/null 2>&1; then
+    CAN_EXEC_SOURCE=true
+else
+    echo "Aborting: ${SOURCE_BIN} does not run on this host" >&2
+    "${SOURCE_BIN}" --version >&2 || true
+    exit 1
+fi
+
+CHECK_CONFIG="${CONFIG_FILE:-${CONFIG_DIR}/config.toml}"
+if [ "${CAN_EXEC_SOURCE}" = true ] && [ -f "${CHECK_CONFIG}" ]; then
+    # setup-config-based-permissions validates the whole config before it
+    # generates anything, and --no-sudoers keeps it from writing a sudoers file
+    # that would reference the pre-install config path. For an ACM-enabled
+    # config it does write the systemd drop-in, which the run below rewrites
+    # from the installed config, so a rejection here can leave that one file
+    # behind and nothing else.
+    if ! "${SOURCE_BIN}" setup-config-based-permissions \
+        --config "${CHECK_CONFIG}" --no-sudoers; then
+        echo "Aborting: ${CHECK_CONFIG} was rejected; no services were installed" >&2
+        exit 1
+    fi
+fi
+
 #
 # User, group, and directory permissions
 #
 
-"${SCRIPT_DIR}/setup-permissions.sh"
+bash "${SCRIPT_DIR}/setup-permissions.sh"
 
 #
 # File installation
 #
 
-install -D -T -m 755 "${PROVIDER_SOURCE_DIR}/${PROVIDER_BIN}" "${PROVIDER_DIR}/bin/${PROVIDER_BIN}"
+install -D -T -m 755 "${SOURCE_BIN}" "${PROVIDER_DIR}/bin/${PROVIDER_BIN}"
 install -D -T -m 755 "${TOKEN_SCRIPT}" "${PROVIDER_DIR}/bin/${TOKEN_SCRIPT}"
+# Staged so the host can be cleaned up later: a bootstrap install deletes the
+# downloaded bundle, which used to be the only copy of these.
+install -D -T -m 750 "${SCRIPT_DIR}/uninstall" "${PROVIDER_DIR}/bin/uninstall"
+install -D -T -m 640 "${SCRIPT_DIR}/common.sh" "${PROVIDER_DIR}/bin/common.sh"
 
 #
 # Service installation
@@ -111,7 +174,20 @@ fi
 mkdir -p "${CONFIG_DIR}"
 chmod 755 "${CONFIG_DIR}"
 
-if [ -n "${CONFIG_FILE}" ]; then
+# -ef compares device and inode, so it needs no external command and is false
+# when either path is missing, where comparing two failed readlink calls would
+# match on empty output. The -L guard keeps a symlinked destination on the
+# install -T path below, which replaces the link with a root-owned regular file
+# rather than reaching through it to chmod the operator's own copy.
+if [ -n "${CONFIG_FILE}" ] && [ -f "${CONFIG_DIR}/config.toml" ] &&
+    [ ! -L "${CONFIG_DIR}/config.toml" ] &&
+    [ "${CONFIG_FILE}" -ef "${CONFIG_DIR}/config.toml" ]; then
+    # Copying a file onto itself fails, so re-apply the permissions only. This is
+    # the upgrade-in-place case: --config pointing at the live config.
+    chmod 440 "${CONFIG_DIR}/config.toml"
+    chown "root:${PROVIDER_GROUP}" "${CONFIG_DIR}/config.toml"
+    echo "Using config already at ${CONFIG_DIR}/config.toml"
+elif [ -n "${CONFIG_FILE}" ]; then
     install -T -m 440 -o "root" -g "${PROVIDER_GROUP}" "${CONFIG_FILE}" "${CONFIG_DIR}/config.toml"
     echo "Config installed from ${CONFIG_FILE}"
 elif [ -f "${CONFIG_DIR}/config.toml" ]; then
@@ -146,12 +222,64 @@ systemctl enable "${SM_SERVICE}" > /dev/null
 systemctl enable "${ACM_SERVICE}" > /dev/null
 
 if [ "${SKIP_START}" = false ]; then
+    # start, not restart, for the token unit: it is a oneshot whose ExecStop
+    # deletes the token file and whose ExecStart mints a new one, so restarting
+    # it would rotate the live SSRF token and 403 every client holding the old
+    # value. It does not run the provider binary, so it needs no restart.
     systemctl start "${TOKEN_SCRIPT}"
-    systemctl start "${SM_SERVICE}"
-    systemctl start "${ACM_SERVICE}"
+    # restart for the provider units: on an upgrade they are already active, so
+    # start would return success while the old binary keeps serving.
+    systemctl restart "${SM_SERVICE}"
+    systemctl restart "${ACM_SERVICE}"
+
     echo "Started services"
+
+    # Both units are Type=simple, so the start job finishes at fork and restart
+    # returns 0 even when the replacement exits straight away. A capability that
+    # is disabled in the config exits cleanly and leaves its unit inactive, which
+    # is fine; one that crashes lands in failed, or in auto-restart when the unit
+    # sets RestartSec, where two starts per StartLimitIntervalSec never reach the
+    # burst limit and the loop runs forever.
+    #
+    # Sampled once a second rather than once after a delay: a unit with
+    # RestartSec=5s reads active for most of its cycle, so any single sample can
+    # land in the healthy part of a crash loop. --value would read the properties
+    # more directly but needs systemd 230, and Amazon Linux 2 ships 219.
+    #
+    # Skipped when systemd is not running, as in an image build or a package
+    # scriptlet in a chroot, where no service can become healthy.
+    UNHEALTHY=""
+    if [ -d /run/systemd/system ]; then
+        SAMPLE=0
+        # Both units per second, so the window is 8 seconds in total rather than
+        # per unit.
+        while [ -z "${UNHEALTHY}" ] && [ "${SAMPLE}" -lt 8 ]; do
+            for unit in "${SM_SERVICE}" "${ACM_SERVICE}"; do
+                STATE=$(systemctl show -p ActiveState "${unit}")
+                STATE=${STATE#ActiveState=}
+                SUBSTATE=$(systemctl show -p SubState "${unit}")
+                SUBSTATE=${SUBSTATE#SubState=}
+                if [ "${STATE}" = failed ] || [ "${SUBSTATE}" = auto-restart ]; then
+                    UNHEALTHY="${unit}"
+                    echo "WARNING: ${unit} is ${STATE} (${SUBSTATE}) after restart" >&2
+                    systemctl status --no-pager --lines=20 "${unit}" >&2 || true
+                    break
+                fi
+            done
+            SAMPLE=$((SAMPLE + 1))
+            [ -n "${UNHEALTHY}" ] || sleep 1
+        done
+    fi
 else
     echo "Services enabled, start skipped (--no-start)"
 fi
 
 echo "Installation complete."
+
+# Exit 3, not 1, so the two failure modes stay apart: 1 means the install
+# aborted and the host was left alone, 3 means everything is installed but a
+# service is not running.
+if [ -n "${UNHEALTHY:-}" ]; then
+    echo "${UNHEALTHY} is installed but not healthy: fix the cause and run 'systemctl restart ${UNHEALTHY}'" >&2
+    exit 3
+fi
