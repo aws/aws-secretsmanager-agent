@@ -37,6 +37,8 @@ To download the source code, see [https://github\.com/aws/aws\-workload\-credent
   - [Secrets Manager capability](#secrets-manager-capability)
   - [Certificate Management capability](#certificate-management-capability)
   - [Quick install](#quick-install)
+      - [\[ Linux quick install \]](#-linux-quick-install-)
+      - [\[ Windows quick install \]](#-windows-quick-install-)
   - [Step 1: Build the Workload Credentials Provider binary](#step-1-build-the-workload-credentials-provider-binary)
       - [\[ RPM-based systems \]](#-rpm-based-systems-)
       - [\[ Debian-based systems \]](#-debian-based-systems-)
@@ -73,7 +75,10 @@ To download the source code, see [https://github\.com/aws/aws\-workload\-credent
 
 ## Quick install<a name="workload-credentials-provider-quick-install"></a>
 
-The bootstrap installer downloads a released binary and the matching configuration directory, then runs the install script for you\. Use it unless you need to build from source, in which case follow Step 1 and Step 2 instead\.
+The bootstrap installers download a released binary and the matching configuration directory, then run the install script for you\. Use them unless you need to build from source, in which case follow Step 1 and Step 2 instead\.
+
+------
+#### [ Linux quick install ]
 
 ```sh
 installer=$(mktemp) && trap 'rm -f "$installer"' EXIT &&
@@ -87,6 +92,27 @@ installer=$(mktemp) && trap 'rm -f "$installer"' EXIT &&
 Download to a file rather than piping into a shell: `bash -c "$(curl …)"` exits 0 when the download fails, because the substitution is simply empty, so a failed install reads as a successful one\. If you do use that form, options must go after a `--`, since the shell would otherwise consume the first one as `$0`\.
 
 As with Step 2, add the user account that your application runs under to the `aws-wcp-token` group so it can read the SSRF token file\.
+
+------
+#### [ Windows quick install ]
+
+Run the following in an Administrator PowerShell session\. If the download fails on an older host, run `[Net.ServicePointManager]::SecurityProtocol = 'Tls12'` first\.
+
+```powershell
+$installer = Join-Path $env:TEMP "awcp-install.ps1"
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.ps1 -OutFile $installer
+& $installer -Version 3.1.1 -Config C:\path\to\config.toml
+Remove-Item $installer
+```
+
+Download to a file rather than running the response directly: `[scriptblock]::Create()` on an empty body produces a script block that does nothing and reports success, so a truncated or empty download would read as a completed install\.
+
+If your execution policy refuses to run the file, or refuses the unsigned install scripts it downloads, run it as `powershell.exe -ExecutionPolicy Bypass -File $installer -Version 3.1.1 -Config C:\path\to\config.toml`\. The script checks the policy before downloading anything and tells you the same thing\.
+
+The script verifies the Authenticode signature on the binary and passes `-Config` and `-NoStart` through to the `install.ps1` script described in [Step 2](#workload-credentials-provider-install)\. It also accepts the following parameters:
+- `-Version <x.y.z>` — Version to install; required, and may also be given as the `AWCP_VERSION` environment variable
+- `-Force` — \(Optional\) Stop running provider services before installing
+- `-DryRun` — \(Optional\) Download and verify, then stop without installing
 
 ------
 
