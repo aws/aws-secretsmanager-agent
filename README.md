@@ -99,8 +99,13 @@ As with Step 2, add the user account that your application runs under to the `aw
 Run the following in an Administrator PowerShell session\. If the download fails on an older host, run `[Net.ServicePointManager]::SecurityProtocol = 'Tls12'` first\.
 
 ```powershell
-& ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.ps1))) -Version 3.1.1 -Config C:\path\to\config.toml
+$installer = Join-Path $env:TEMP "awcp-install.ps1"
+Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.ps1 -OutFile $installer
+& $installer -Version 3.1.1 -Config C:\path\to\config.toml
+Remove-Item $installer
 ```
+
+Download to a file rather than running the response directly: `[scriptblock]::Create()` on an empty body produces a script block that does nothing and reports success, so a truncated or empty download would read as a completed install\.
 
 The script verifies the Authenticode signature on the binary and passes `-Config` and `-NoStart` through to the `install.ps1` script described in [Step 2](#workload-credentials-provider-install)\. It also accepts the following parameters:
 - `-Version <x.y.z>` — Version to install; required, and may also be given as the `AWCP_VERSION` environment variable
