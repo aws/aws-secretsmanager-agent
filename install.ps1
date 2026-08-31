@@ -39,6 +39,10 @@
     success, so a failed download would read as a completed install.
 #>
 
+# CmdletBinding, so an unknown switch is an error rather than being collected
+# into $args: without it a mistyped -DryRun binds to nothing, $DryRun stays
+# false, and what the operator meant as a rehearsal is a real install.
+[CmdletBinding()]
 param(
     [string]$Version = $env:AWCP_VERSION,
     [string]$Config,
