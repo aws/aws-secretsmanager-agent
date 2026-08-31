@@ -51,7 +51,7 @@ main() {
     esac
 
     [ "$(id -u)" -eq 0 ] || die "must run as root"
-    [ "$(uname -s)" = Linux ] || die "unsupported OS: $(uname -s). On Windows, use install.ps1"
+    [ "$(uname -s)" = Linux ] || die "unsupported OS: $(uname -s). On Windows, follow the Windows quick install in the README"
 
     case "$(uname -m)" in
         x86_64 | amd64) target=x86_64-unknown-linux-gnu ;;
@@ -60,7 +60,7 @@ main() {
     esac
 
     # Commands this script uses itself, resolved the way it will call them.
-    for cmd in curl mktemp tar; do
+    for cmd in curl mktemp od tar; do
         command -v "$cmd" >/dev/null || die "required command not found: $cmd"
     done
 
@@ -69,8 +69,8 @@ main() {
     # doesn't pass here and go missing at use time. Checked up front, since a
     # host missing sha256sum installs cleanly and then serves 403s, and one
     # missing bash dies after the whole binary has been downloaded.
-    for cmd in bash chgrp chmod chown cut dd grep groupadd id install sha256sum \
-        sleep systemctl useradd; do
+    for cmd in bash cat chgrp chmod chown cut dd grep groupadd id install mkdir \
+        rm sha256sum sleep systemctl touch useradd; do
         PATH=/bin:/usr/bin:/sbin:/usr/sbin command -v "$cmd" >/dev/null ||
             die "required command not found on the install script's PATH: $cmd"
     done
@@ -98,22 +98,51 @@ main() {
     # Strip --dry-run and leave the rest in "$@" for the install script.
     # Rotating through "$@" keeps arguments containing spaces intact.
     dry_run=false
+    config_next=false
     remaining=$#
     while [ "$remaining" -gt 0 ]; do
         arg=$1
         shift
-        if [ "$arg" = --dry-run ]; then
+        if [ "$config_next" = true ]; then
+            config_next=false
+            # Made absolute here: the install script cds to its own directory
+            # before it copies the config, so a relative path would resolve
+            # against the staging directory instead of the caller's, and the
+            # copy would fail with users, units and the binary already on disk.
+            case $arg in
+                /*) ;;
+                *) arg="$PWD/$arg" ;;
+            esac
+            [ -f "$arg" ] || die "cannot find config file: $arg"
+            set -- "$@" "$arg"
+        elif [ "$arg" = --dry-run ]; then
             dry_run=true
         else
+            if [ "$arg" = --config ]; then
+                config_next=true
+            fi
             set -- "$@" "$arg"
         fi
         remaining=$((remaining - 1))
     done
 
-    # /var/tmp rather than /tmp, and TMPDIR deliberately ignored: the install
-    # script execs the binary from here for its pre-flight checks, and hardened
-    # hosts commonly mount /tmp noexec.
-    tmp=$(mktemp -d /var/tmp/awcp-install.XXXXXX)
+    # The install script runs setup-permissions.sh directly rather than through
+    # bash, so the staging filesystem has to allow exec. Hardened hosts mount
+    # /tmp noexec and often /var/tmp with it, so the choice is probed rather
+    # than assumed, and TMPDIR is ignored so it can't point somewhere noexec.
+    tmp=""
+    for base in /var/tmp /var/lib /opt; do
+        candidate=$(mktemp -d "$base/awcp-install.XXXXXX" 2> /dev/null) || continue
+        probe="$candidate/exec-probe"
+        if (printf '#!/bin/sh\n' > "$probe" && chmod 755 "$probe" && "$probe") 2> /dev/null; then
+            rm -f "$probe"
+            tmp=$candidate
+            break
+        fi
+        rm -rf "$candidate"
+    done
+    [ -n "$tmp" ] ||
+        die "no exec-capable staging directory: tried /var/tmp /var/lib /opt, all rejected exec"
     trap 'rm -rf "$tmp"' EXIT
     # A signal handler returns to the next command, so these have to exit
     # themselves or the script would carry on with its work directory deleted.
@@ -142,6 +171,13 @@ main() {
     source_dir="$configuration/../../target/release"
     mkdir -p "$source_dir"
     fetch "$BASE_URL/$version/$target/$BIN" "$source_dir/$BIN"
+    # A proxy or a misconfigured object can answer 200 with an HTML error page,
+    # which curl -f accepts. The magic number is not integrity checking, but it
+    # turns that into a clear failure here rather than an exec-format error after
+    # the users, units and binary are on disk.
+    magic=$(od -An -tx1 -N4 "$source_dir/$BIN" | tr -d ' \n')
+    [ "$magic" = 7f454c46 ] ||
+        die "$BASE_URL/$version/$target/$BIN is not an ELF binary; got magic $magic"
     chmod 755 "$source_dir/$BIN"
 
     if [ "$dry_run" = true ]; then
