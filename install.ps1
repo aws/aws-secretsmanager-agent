@@ -68,6 +68,16 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
     throw "PowerShell 5.0 or newer is required; this session is $($PSVersionTable.PSVersion)."
 }
 
+# The tag ships install.ps1, common.ps1 and the seed-token script as unsigned
+# .ps1 files, and they are run from disk: the delegate through the call operator,
+# the seed script through powershell.exe -File. A policy that refuses those fails
+# the install after the binary and the archive have been downloaded, and after the
+# services have been registered, so it is checked before any of that happens.
+$policy = Get-ExecutionPolicy
+if ($policy -in @("Restricted", "AllSigned")) {
+    throw "PowerShell execution policy is $policy, which blocks the unsigned install scripts this downloads. Re-run as 'powershell.exe -ExecutionPolicy Bypass -File <script>', or set 'Set-ExecutionPolicy -Scope Process Bypass' first."
+}
+
 $current = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $current.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     throw "This script must be run as Administrator."

@@ -107,6 +107,8 @@ Remove-Item $installer
 
 Download to a file rather than running the response directly: `[scriptblock]::Create()` on an empty body produces a script block that does nothing and reports success, so a truncated or empty download would read as a completed install\.
 
+If your execution policy refuses to run the file, or refuses the unsigned install scripts it downloads, run it as `powershell.exe -ExecutionPolicy Bypass -File $installer -Version 3.1.1 -Config C:\path\to\config.toml`\. The script checks the policy before downloading anything and tells you the same thing\.
+
 The script verifies the Authenticode signature on the binary and passes `-Config` and `-NoStart` through to the `install.ps1` script described in [Step 2](#workload-credentials-provider-install)\. It also accepts the following parameters:
 - `-Version <x.y.z>` — Version to install; required, and may also be given as the `AWCP_VERSION` environment variable
 - `-Force` — \(Optional\) Stop running provider services before installing
