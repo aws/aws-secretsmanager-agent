@@ -30,7 +30,13 @@
     Download and verify, then stop without installing.
 
 .EXAMPLE
-    & ([scriptblock]::Create((Invoke-RestMethod https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.ps1))) -Version 3.1.1 -Config C:\path\to\config.toml
+    $installer = Join-Path $env:TEMP "awcp-install.ps1"
+    Invoke-WebRequest -UseBasicParsing https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.ps1 -OutFile $installer
+    & $installer -Version 3.1.1 -Config C:\path\to\config.toml
+
+    Downloaded to a file rather than run from the response, because
+    [scriptblock]::Create() on an empty body silently does nothing and reports
+    success, so a failed download would read as a completed install.
 #>
 
 param(
@@ -70,7 +76,9 @@ if (-not $current.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrato
 if (-not $Version) {
     throw "Pass -Version (or set AWCP_VERSION) to the version to install, as in -Version 3.1.1"
 }
-if ($Version -notmatch '^\d+\.\d+\.\d+$') {
+# \z, not $: .NET's $ also matches before a trailing newline, so a version with
+# one on the end would pass and then be interpolated into the download URLs.
+if ($Version -notmatch '^\d+\.\d+\.\d+\z') {
     throw "Not a valid version: $Version"
 }
 
@@ -93,6 +101,7 @@ $tmp = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ("awcp-install-" 
 $previousProtocol = [Net.ServicePointManager]::SecurityProtocol
 $stoppedServices = @()
 $installed = $false
+$keepStaging = $false
 $delegateRan = $false
 try {
     & icacls $tmp.FullName /inheritance:r /grant "*S-1-5-18:(OI)(CI)F" /grant "*S-1-5-32-544:(OI)(CI)F" /Q | Out-Null
@@ -154,7 +163,11 @@ try {
         Where-Object { $_.Status -ne "Stopped" })
 
     if ($DryRun) {
-        Write-Host "Downloaded $EXE $Version and the v$Version configuration. Install skipped (-DryRun)."
+        # Kept, so the operator can read the scripts and check the binary before
+        # committing to an install. Theirs to remove afterwards.
+        $keepStaging = $true
+        Write-Host "Downloaded $EXE $Version and the v$Version configuration to $($tmp.FullName)"
+        Write-Host "Install skipped (-DryRun). Remove $($tmp.FullName) when you are done."
         if ($running) {
             Write-Host "  Note: $($running.Name -join ', ') running; a real install needs -Force."
         }
@@ -246,5 +259,7 @@ try {
         }
     }
     [Net.ServicePointManager]::SecurityProtocol = $previousProtocol
-    Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+    if (-not $keepStaging) {
+        Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+    }
 }
