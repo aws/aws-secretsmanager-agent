@@ -1,9 +1,13 @@
 #!/bin/sh
 # Bootstrap installer for the AWS Workload Credentials Provider on Linux.
 #
-#   sudo AWCP_VERSION=3.1.1 /bin/bash -c "$(curl --proto '=https' --tlsv1.2 -fsSL \
-#     https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.sh)" \
-#     -- --config /path/to/config.toml
+#   installer=$(mktemp) && curl --proto '=https' --tlsv1.2 -fsSL -o "$installer" \
+#     https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.sh &&
+#     sudo AWCP_VERSION=3.1.1 bash "$installer" --config /path/to/config.toml
+#
+# Downloaded to a file rather than piped into a shell, because `bash -c "$(curl
+# ...)"` exits 0 when the download fails: the substitution is empty and nothing
+# runs. That form still works, with the options after a --.
 #
 # Downloads the release binary and the matching configuration directory, then
 # runs the install script from it. Options other than --dry-run are passed
@@ -55,18 +59,34 @@ main() {
         *) die "unsupported architecture: $(uname -m)" ;;
     esac
 
-    # Commands used here and by the install script this hands off to, so a host
-    # missing one of them fails before anything is downloaded or created.
-    for cmd in chgrp chmod chown curl grep groupadd id install mktemp \
-        systemctl tar useradd; do
+    # Commands this script uses itself, resolved the way it will call them.
+    for cmd in curl mktemp tar; do
         command -v "$cmd" >/dev/null || die "required command not found: $cmd"
+    done
+
+    # Commands the install script and the token unit need, resolved against the
+    # PATH those pin rather than this shell's, so a useradd in /usr/local/sbin
+    # doesn't pass here and go missing at use time. Checked up front, since a
+    # host missing sha256sum installs cleanly and then serves 403s, and one
+    # missing bash dies after the whole binary has been downloaded.
+    for cmd in bash chgrp chmod chown cut dd grep groupadd id install sha256sum \
+        sleep systemctl useradd; do
+        PATH=/bin:/usr/bin:/sbin:/usr/sbin command -v "$cmd" >/dev/null ||
+            die "required command not found on the install script's PATH: $cmd"
     done
 
     version="${AWCP_VERSION:-}"
     [ -n "$version" ] ||
         die "set AWCP_VERSION to the version to install, as in 'sudo AWCP_VERSION=3.1.1 ...'"
-    echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' ||
-        die "not a valid version: $version"
+    # Pattern-matched rather than piped through grep: ^ and $ anchor each line,
+    # not the whole value, and sh builtins that expand \n would let a second
+    # line ride along behind a valid first one.
+    case "$version" in
+        *[!0-9.]* | *..* | .* | *.) die "not a valid version: $version" ;;
+        *.*.*.*) die "not a valid version: $version" ;;
+        *.*.*) ;;
+        *) die "not a valid version: $version" ;;
+    esac
 
     # `bash -c <script> -- <options>` consumes the -- as $0, but running the
     # file directly leaves it as the first argument, so drop it here to make
@@ -108,17 +128,11 @@ main() {
     archive="$REPO_URL/archive/refs/tags/v$version.tar.gz"
     curl --proto '=https' --tlsv1.2 -fsSL --retry 3 -o "$tmp/repo.tar.gz" -- "$archive" ||
         die "cannot fetch $archive; is v$version tagged?"
-    tar --no-same-owner -xzf "$tmp/repo.tar.gz" -C "$tmp/repo"
-    # GitHub names the archive's top directory after the repository and tag, so
-    # a glob finds it without depending on find(1) being installed.
-    configuration=""
-    for candidate in "$tmp"/repo/*/aws_workload_credentials_provider_common/configuration; do
-        if [ -f "$candidate/install" ]; then
-            configuration=$candidate
-            break
-        fi
-    done
-    [ -n "$configuration" ] || die "no configuration directory in $archive"
+    # --strip-components drops the top directory GitHub names after the
+    # repository and tag, so the paths below don't have to rediscover it.
+    tar --no-same-owner --strip-components=1 -xzf "$tmp/repo.tar.gz" -C "$tmp/repo"
+    configuration="$tmp/repo/aws_workload_credentials_provider_common/configuration"
+    [ -f "$configuration/install" ] || die "no install script in $archive"
 
     # The install script installs the binary itself, from ../../target/release
     # relative to its own location, which is where a source build leaves it. So
@@ -131,7 +145,11 @@ main() {
     chmod 755 "$source_dir/$BIN"
 
     if [ "$dry_run" = true ]; then
-        echo "Downloaded $BIN $version and the v$version configuration. Install skipped (--dry-run)."
+        # Kept, so the operator can read the units and check the binary before
+        # committing to an install. Theirs to remove afterwards.
+        trap - EXIT HUP INT TERM
+        echo "Downloaded $BIN $version and the v$version configuration to $tmp"
+        echo "Install skipped (--dry-run). Remove $tmp when you are done."
         return 0
     fi
 
