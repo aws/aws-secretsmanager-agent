@@ -2,3 +2,8 @@
 resolver = "2"
 
 members = ["aws_workload_credentials_provider", "aws_workload_credentials_provider_common", "aws_secretsmanager_provider", "aws_secretsmanager_caching", "aws_certificatemanager_provider", "integration-tests"]
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
