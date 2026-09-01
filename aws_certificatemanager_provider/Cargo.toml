@@ -32,7 +32,7 @@ aws_workload_credentials_provider_common = { version = "3.1.1", path = "../aws_w
 aws-smithy-mocks = "0.1"
 aws-smithy-runtime = { version = "1", features = ["test-util"] }
 aws-sdk-acm = { version = "1", features = ["test-util"] }
-http = "0.2"
+http = "1.4"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "test-util"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
 pkcs5 = "0.7"
